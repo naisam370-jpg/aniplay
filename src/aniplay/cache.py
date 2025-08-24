@@ -11,13 +11,13 @@ META_DIR = CACHE_DIR / "meta"
 
 
 for p in (COVER_DIR, META_DIR):
-p.mkdir(parents=True, exist_ok=True)
+    p.mkdir(parents=True, exist_ok=True)
 
 
 def keyify(text: str) -> str:
-return sha1(text.encode("utf-8", errors="ignore")).hexdigest()
+    return sha1(text.encode("utf-8", errors="ignore")).hexdigest()
 
 
 def cover_path_for(url_or_id: str, ext: str = ".jpg") -> Path:
-key = keyify(url_or_id)
-return COVER_DIR / f"{key}{ext}"
+    key = keyify(url_or_id)
+    return COVER_DIR / f"{key}{ext}"
