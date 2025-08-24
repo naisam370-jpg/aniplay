@@ -2,21 +2,20 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-
 [project]
 name = "aniplay"
 version = "0.1.0"
 description = "AniPlay — Local Anime Player with MPV and AniList covers"
-authors = [{ name = "Naisam Mohammed", email = "naisam370@gmail.com" }]
+authors = [{ name = "Ahmed Naisam Mohammed", email = "naisam370@gmail.com" }]
 readme = "README.md"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.9"
 dependencies = [
-"PyQt6",
-"requests",
-"python-mpv",
+    "PyQt6",
+    "requests",
+    "python-mpv",
+    "appdirs",
 ]
-
 
 [project.scripts]
 aniplay = "aniplay.gui:main"
