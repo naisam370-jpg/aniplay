@@ -12,9 +12,9 @@ Make sure your system is up to date:
 
 ```bash
 sudo apt update && sudo apt upgrade
-
+```
 Install the required development libraries:
-
+```bash
 sudo apt install \
     build-essential \
     cmake \
