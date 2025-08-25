@@ -42,7 +42,7 @@ make -j$(nproc)
 ```
 
 The resulting executable will be in ./build/aniplay.
-Running
+### Running
 
 #### From the build directory:
 ```bash
