@@ -1,0 +1,3 @@
+/home/naisam/aniplay/build/CMakeFiles/aniplay.dir
+/home/naisam/aniplay/build/CMakeFiles/edit_cache.dir
+/home/naisam/aniplay/build/CMakeFiles/rebuild_cache.dir

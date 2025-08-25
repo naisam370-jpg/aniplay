@@ -4,23 +4,24 @@ project(aniplay LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGL)
+# Find dependencies
+find_package(PkgConfig REQUIRED)
+find_package(OpenGL REQUIRED)
+
+pkg_check_modules(SDL2 REQUIRED sdl2)
+pkg_check_modules(MPV REQUIRED mpv)
+
+include_directories(
+    ${SDL2_INCLUDE_DIRS}
+    ${MPV_INCLUDE_DIRS}
+)
 
 add_executable(aniplay
     src/main.cpp
-    src/mpvwidget.cpp
-    src/mpvwidget.h
 )
 
-target_link_libraries(aniplay PRIVATE
-    Qt6::Widgets
-    Qt6::OpenGL
-    mpv
-)
-
-# Enable Qt moc, rcc, uic automatically
-set_target_properties(aniplay PROPERTIES
-    AUTOMOC ON
-    AUTOUIC ON
-    AUTORCC ON
+target_link_libraries(aniplay
+    ${SDL2_LIBRARIES}
+    ${MPV_LIBRARIES}
+    OpenGL::GL
 )

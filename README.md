@@ -1,57 +1,57 @@
-# Aniplay
+# Aniplay 🎥
 
-Aniplay is a simple media player built with **C++**, **Qt6**, and **libmpv**.  
-It uses `QOpenGLWidget` for rendering and integrates with the `libmpv` API for smooth video playback.
+A lightweight anime (or any video) player built in **C++** using **SDL2**, **OpenGL**, and **libmpv**.  
+This project was originally started with Qt but was refactored to SDL2 for a simpler and more direct rendering pipeline.
 
 ---
 
-## Requirements
+## 🚀 Features
+- Uses **libmpv** for playback (fast, reliable).
+- **SDL2** for window and input handling.
+- **OpenGL** for rendering video frames.
+- Cross-platform (Linux, Windows, WSL2 with X11/Wayland).
 
-### System Packages (Debian / Ubuntu)
-Make sure your system is up to date:
+---
 
+## 📦 Dependencies
+
+Install these before building:
+
+### Debian / Ubuntu
 ```bash
-sudo apt update && sudo apt upgrade
+sudo apt update
+sudo apt install build-essential cmake pkg-config \
+    libsdl2-dev libmpv-dev libgl1-mesa-dev
 ```
-Install the required development libraries:
+### Arch Linux
 ```bash
-sudo apt install \
-    build-essential \
-    cmake \
-    pkg-config \
-    qt6-base-dev \
-    qt6-base-dev-tools \
-    qt6-openglwidgets-dev \
-    libmpv-dev
+sudo pacman -S base-devel cmake sdl2 mpv mesa
+```
+### Fedora
+```bash 
+sudo dnf install @development-tools cmake SDL2-devel mpv-libs-devel mesa-libGL-devel
 ```
 
-### Optional (for runtime testing)
+## Build Instructions
 ```bash
-sudo apt install mpv
-```
-
-### Building
-
-#### Clone the repository and build:
-```bash
-git clone https://github.com/naisam370-jpg/aniplay
+git clone https://github.com/yourname/aniplay.git
 cd aniplay
 mkdir build && cd build
 cmake ..
-make -j$(nproc)
+make
 ```
-
-The resulting executable will be in ./build/aniplay.
-### Running
-
-#### From the build directory:
+## RUN
 ```bash
-./aniplay
+./aniplay /path/to/video/file.mkv
 ```
-### Notes
+### Troubleshooting
+cannot find -lmpv → Make sure libmpv-dev (Debian/Ubuntu) or mpv-libs-devel (Fedora) is installed.
 
-    QOpenGLWidget requires the qt6-openglwidgets-dev package (not included in qt6-base-dev).
+undefined reference to glClear → Ensure libgl1-mesa-dev (or equivalent OpenGL dev package) is installed.
 
-    If you see errors like fatal error: QOpenGLWidget: No such file or directory, install qt6-openglwidgets-dev.
+WSL users → You need X11/Wayland forwarding or a display server like VcXsrv for video output.
 
-    If you see OSError: Cannot find libmpv, ensure libmpv-dev is installed.
+## License
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**
+
+see the LICENSE file for details
