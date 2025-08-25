@@ -23,29 +23,32 @@ sudo apt install \
     qt6-base-dev-tools \
     qt6-openglwidgets-dev \
     libmpv-dev
+```
 
-Optional (for runtime testing)
-
+### Optional (for runtime testing)
+```bash
 sudo apt install mpv
+```
 
-Building
+### Building
 
-Clone the repository and build:
-
-git clone https://github.com/yourusername/aniplay.git
+#### Clone the repository and build:
+```bash
+git clone https://github.com/naisam370-jpg/aniplay
 cd aniplay
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
+```
 
 The resulting executable will be in ./build/aniplay.
 Running
 
-From the build directory:
-
+#### From the build directory:
+```bash
 ./aniplay
-
-Notes
+```
+### Notes
 
     QOpenGLWidget requires the qt6-openglwidgets-dev package (not included in qt6-base-dev).
 
