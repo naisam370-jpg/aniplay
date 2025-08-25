@@ -23,7 +23,13 @@ MpvWidget::MpvWidget(QWidget *parent)
     mpv_set_option_string(mpv, "vo", "gpu");
     mpv_initialize(mpv);
 
-    mpv_opengl_init_params gl_init_params{nullptr, nullptr, nullptr};
+    mpv_opengl_init_params gl_init_params;
+gl_init_params.get_proc_address = [](void *ctx, const char *name) -> void* {
+    Q_UNUSED(ctx);
+    return reinterpret_cast<void*>(QOpenGLContext::currentContext()->getProcAddress(QByteArray(name)));
+};
+gl_init_params.get_proc_address_ctx = nullptr;
+
     mpv_render_param params[] = {
         {MPV_RENDER_PARAM_API_TYPE, (void *)MPV_RENDER_API_TYPE_OPENGL},
         {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
