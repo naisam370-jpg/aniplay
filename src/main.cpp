@@ -1,89 +1,90 @@
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
-#include <SDL2/SDL.h>
-#include <GL/gl.h>
+#include <GLFW/glfw3.h>
 #include <iostream>
-#include <stdexcept>
 
-int main(int argc, char *argv[]) {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
-        std::cerr << "Failed to init SDL: " << SDL_GetError() << "\n";
+static void on_mpv_update(void *ctx) {
+    mpv_handle *mpv = (mpv_handle *)ctx;
+    while (true) {
+        mpv_event *event = mpv_wait_event(mpv, 0);
+        if (event->event_id == MPV_EVENT_NONE) {
+            break;
+        }
+        // Handle events if needed
+    }
+}
+
+int main(int argc, char **argv) {
+    if (!glfwInit()) {
+        std::cerr << "Failed to init GLFW" << std::endl;
         return -1;
     }
 
-    // Create SDL window with OpenGL context
-    SDL_Window *window = SDL_CreateWindow(
-        "AniPlay (SDL2 + mpv)",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        1280, 720,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
-    );
-
+    GLFWwindow *window = glfwCreateWindow(1280, 720, "Aniplay", nullptr, nullptr);
     if (!window) {
-        std::cerr << "Failed to create SDL window: " << SDL_GetError() << "\n";
+        std::cerr << "Failed to create window" << std::endl;
+        glfwTerminate();
         return -1;
     }
-
-    SDL_GLContext gl_ctx = SDL_GL_CreateContext(window);
-    if (!gl_ctx) {
-        std::cerr << "Failed to create OpenGL context: " << SDL_GetError() << "\n";
-        return -1;
-    }
+    glfwMakeContextCurrent(window);
 
     // Init mpv
     mpv_handle *mpv = mpv_create();
     if (!mpv) {
-        std::cerr << "Failed creating mpv instance\n";
+        std::cerr << "failed creating mpv" << std::endl;
         return -1;
     }
 
-    if (mpv_initialize(mpv) < 0) {
-        std::cerr << "mpv failed to initialize\n";
-        return -1;
-    }
+    mpv_set_option_string(mpv, "vo", "gpu");
+    mpv_initialize(mpv);
 
-    // Create render context
-    mpv_opengl_init_params gl_init_params = {nullptr, nullptr, nullptr};
-    mpv_render_param params[] = {
-        {MPV_RENDER_PARAM_API_TYPE, const_cast<char*>(MPV_RENDER_API_TYPE_OPENGL)},
-        {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
-        {MPV_RENDER_PARAM_INVALID, nullptr}
+    // Proper function loader wrapper
+    mpv_opengl_init_params gl_init_params;
+    gl_init_params.get_proc_address = [](void *, const char *name) -> void * {
+        return reinterpret_cast<void *>(glfwGetProcAddress(name));
     };
+    gl_init_params.get_proc_address_ctx = nullptr;
+
+    mpv_render_param params[] = {
+        {MPV_RENDER_PARAM_API_TYPE, (void *)MPV_RENDER_API_TYPE_OPENGL},
+        {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
+        {MPV_RENDER_PARAM_FLIP_Y, (void *)1},  // 👈 Fix upside-down video
+        {MPV_RENDER_PARAM_INVALID, nullptr}};
 
     mpv_render_context *mpv_gl = nullptr;
     if (mpv_render_context_create(&mpv_gl, mpv, params) < 0) {
-        std::cerr << "Failed to create mpv render context\n";
+        std::cerr << "failed to initialize mpv GL context" << std::endl;
         return -1;
     }
 
-    // Load a test video
-    const char *cmd[] = {"loadfile", argc > 1 ? argv[1] : "video.mp4", nullptr};
+    mpv_render_context_set_update_callback(mpv_gl, on_mpv_update, mpv);
+
+    // Load a file (replace with your own path)
+    const char *cmd[] = {"loadfile", "test.mp4", nullptr};
     mpv_command(mpv, cmd);
 
-    bool running = true;
-    while (running) {
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) running = false;
-        }
-
+    while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
 
-        mpv_render_param rp[] = {
-            {MPV_RENDER_PARAM_OPENGL_FBO, (void*)(uintptr_t)0},
-            {MPV_RENDER_PARAM_INVALID, nullptr}
-        };
+        int win_w, win_h;
+        glfwGetFramebufferSize(window, &win_w, &win_h);
 
-        mpv_render_context_render(mpv_gl, rp);
+        // Create FBO struct as a real variable
+        mpv_opengl_fbo fbo = {0, win_w, win_h};
 
-        SDL_GL_SwapWindow(window);
+        mpv_render_param r_params[] = {
+            {MPV_RENDER_PARAM_OPENGL_FBO, &fbo},
+            {MPV_RENDER_PARAM_INVALID, nullptr}};
+
+        mpv_render_context_render(mpv_gl, r_params);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
 
     mpv_render_context_free(mpv_gl);
     mpv_terminate_destroy(mpv);
-    SDL_GL_DeleteContext(gl_ctx);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-
+    glfwDestroyWindow(window);
+    glfwTerminate();
     return 0;
 }
