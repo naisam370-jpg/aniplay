@@ -19,9 +19,7 @@ Install these before building:
 
 ### Debian / Ubuntu
 ```bash
-sudo apt update
-sudo apt install build-essential cmake pkg-config \
-    libsdl2-dev libmpv-dev libgl1-mesa-dev
+sudo ./install_deps.sh
 ```
 ### Arch Linux
 ```bash
@@ -42,14 +40,14 @@ make
 ```
 ## RUN
 ```bash
-./aniplay /path/to/video/file.mkv
+./aniplay '/path/to/video/file.mkv'
 ```
 ### Troubleshooting
-cannot find -lmpv → Make sure libmpv-dev (Debian/Ubuntu) or mpv-libs-devel (Fedora) is installed.
+cannot find ``` -lmpv ``` → Make sure ``` libmpv-dev ``` (Debian/Ubuntu) or `mpv-libs-devel` (Fedora) is installed.
 
-undefined reference to glClear → Ensure libgl1-mesa-dev (or equivalent OpenGL dev package) is installed.
+undefined reference to `glClear` → Ensure `libgl1-mesa-dev` (or equivalent OpenGL dev package) is installed.
 
-WSL users → You need X11/Wayland forwarding or a display server like VcXsrv for video output.
+WSL users → You need X11/Wayland forwarding or a display server like **VcXsrv** for video output.
 
 ## License
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**
