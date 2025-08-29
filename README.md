@@ -1,55 +1,58 @@
-# Aniplay 🎥
+# AniPlay
 
-A lightweight anime (or any video) player built in **C++** using **SDL2**, **OpenGL**, and **libmpv**.  
-This project was originally started with Qt but was refactored to SDL2 for a simpler and more direct rendering pipeline.
-
----
-
-## 🚀 Features
-- Uses **libmpv** for playback (fast, reliable).
-- **SDL2** for window and input handling.
-- **OpenGL** for rendering video frames.
-- Cross-platform (Linux, Windows, WSL2 with X11/Wayland).
+AniPlay is an experimental anime/video library manager and player.  
+It uses a **C++ backend** (libmpv) for media playback and a **Python (PySide6)** frontend for the GUI.  
 
 ---
 
-## 📦 Dependencies
+## 📂 Project Structure
+```sh
 
-Install these before building:
-
-### Debian / Ubuntu
-```bash
-sudo ./install_deps.sh
-```
-### Arch Linux
-```bash
-sudo pacman -S base-devel cmake sdl2 mpv mesa
-```
-### Fedora
-```bash 
-sudo dnf install @development-tools cmake SDL2-devel mpv-libs-devel mesa-libGL-devel
+aniplay/
+├── backend/
+│ ├── CMakeLists.txt # Build rules for backend
+│ ├── src/ # C++ source files (mpv wrapper, core logic)
+│ └── include/ # C++ headers
+├── gui.py # Python GUI (PySide6, communicates with backend)
+├── install_deps.sh # Dependency installation script
+└── README.md # Project documentation
 ```
 
-## Build Instructions
+---
+
+## Requirements
+
+- Debian 12 / Ubuntu 22.04 (or similar Linux)
+- CMake ≥ 3.16
+- GCC ≥ 10
+- Python 3.9+
+- `libmpv` development libraries
+- Qt6 (via PySide6)
+
+---
+
+## Installation
+
+Clone the repository and install dependencies:
+
 ```bash
-git clone https://github.com/yourname/aniplay.git
+git clone https://github.com/naisam370-jpg/aniplay.git
 cd aniplay
-mkdir build && cd build
+chmod +x install_deps.sh
+./install_deps.sh
+```
+## Build Backend
+```bash
+mkdir -p build
+cd build
 cmake ..
 make
 ```
-## RUN
+This produces a shared library that the GUI can call into.
+## Run GUI
+From the project root
 ```bash
-./aniplay '/path/to/video/file.mkv'
+python3 gui.py
 ```
-### Troubleshooting
-cannot find ``` -lmpv ``` → Make sure ``` libmpv-dev ``` (Debian/Ubuntu) or `mpv-libs-devel` (Fedora) is installed.
-
-undefined reference to `glClear` → Ensure `libgl1-mesa-dev` (or equivalent OpenGL dev package) is installed.
-
-WSL users → You need X11/Wayland forwarding or a display server like **VcXsrv** for video output.
-
-## License
-This project is licensed under the **GNU General Public License v3.0 (GPLv3)**
-
-see the LICENSE file for details
+## license 
+GPLv3
