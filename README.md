@@ -55,4 +55,4 @@ From the project root
 python3 gui.py
 ```
 ## license 
-GPLv3
+GPLv3 
