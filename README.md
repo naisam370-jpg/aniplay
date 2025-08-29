@@ -1,4 +1,4 @@
-# AniPlay
+# AniPlay(PROTOTYPE)
 
 AniPlay is an experimental anime/video library manager and player.  
 It uses a **C++ backend** (libmpv) for media playback and a **Python (PySide6)** frontend for the GUI.  
