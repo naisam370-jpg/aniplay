@@ -17,6 +17,7 @@ echo "[*] Installing Python + PySide6..."
 sudo apt install -y python3 python3-pip
 pip3 install --upgrade pip
 pip3 install PySide6
+pip3 install pyqt6
 
 echo "[*] All dependencies installed successfully!"
 echo "Now you can build the backend:"
