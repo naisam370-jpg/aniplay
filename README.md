@@ -10,12 +10,16 @@ It uses a **C++ backend** (libmpv) for media playback and a **Python (PySide6)**
 
 aniplay/
 ├── backend/
-│ ├── CMakeLists.txt # Build rules for backend
-│ ├── src/ # C++ source files (mpv wrapper, core logic)
-│ └── include/ # C++ headers
-├── gui.py # Python GUI (PySide6, communicates with backend)
-├── install_deps.sh # Dependency installation script
-└── README.md # Project documentation
+│   └── mpvplayer.cpp
+├── covers/              # cached covers (auto-created)
+│   ├── Naruto.jpg
+│   ├── One Piece.jpg
+│   └── ...
+├── library/             # your anime folders
+│   ├── Naruto/
+│   └── One Piece/
+├── gui.py
+├── cover_cache.py       # new file
 ```
 
 ---
