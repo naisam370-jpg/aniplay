@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/aniplay.dir/src/main.cpp.o -o aniplay  -lSDL2 -lmpv /usr/lib/x86_64-linux-gnu/libGLX.so /usr/lib/x86_64-linux-gnu/libOpenGL.so 
