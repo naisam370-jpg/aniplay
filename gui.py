@@ -104,6 +104,7 @@ class AniPlayWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("AniPlay")
         self.setMinimumSize(1200, 720)
+        
 
         self.library_path = library_path
         self.covers_path = covers_path
