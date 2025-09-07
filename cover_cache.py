@@ -48,7 +48,9 @@ def precache_covers(library_path="library", cache_dir="covers"):
 def _hash_path(path: str) -> str:
     return hashlib.sha1(path.encode("utf-8")).hexdigest()
 
-def ensure_episode_thumbnail(video_path: str, cache_dir: str, seek="00:00:10", width=320) -> str or None:
+from typing import Optional
+
+def ensure_episode_thumbnail(video_path: str, cache_dir: str, seek="00:00:10", width=320) -> Optional[str]:
     """
     Create (or return) a cached jpg thumbnail for the given video using ffmpeg.
     Returns the thumbnail path or None on failure.
