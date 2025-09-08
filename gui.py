@@ -1,138 +1,24 @@
-import sys, os, json, subprocess
+import sys, os, subprocess
 from functools import partial
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QListWidget, QListWidgetItem, QStackedWidget, QFrame, QSpacerItem,
-    QSizePolicy, QMessageBox, QPushButton, QDialog, QLineEdit,
-    QStyle, QFileDialog, QCheckBox
+    QSizePolicy, QMessageBox
 )
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt, QSize, QTimer
 
 from cover_cache import precache_covers, ensure_episode_thumbnail
+from settings import SettingsManager   # ✅ use settings backend
 
 
-LIBRARY_PATH = os.path.abspath("library")
-COVERS_PATH = os.path.abspath("covers")
 THUMBS_PATH = os.path.abspath(os.path.join(os.path.expanduser("~"), ".aniplay_thumbs"))
-CONFIG_PATH = os.path.abspath("config.json")
 
 POSTER_SIZE = QSize(220, 310)   # series cover (portrait)
 THUMB_SIZE  = QSize(320, 180)   # episode thumb (16:9)
 
 
-# -----------------------
-# Config Helpers
-# -----------------------
-def load_settings():
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-def save_settings(data):
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(data, f, indent=2)
-
-
-# -----------------------
-# Settings Dialog
-# -----------------------
-class SettingsDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Settings")
-        self.setModal(True)
-        self.resize(400, 250)
-
-        layout = QVBoxLayout(self)
-
-        # Library path setting
-        self.library_label = QLabel("Library Folder:")
-        self.library_path = QLineEdit()
-        self.library_btn = QPushButton("Browse")
-        self.library_btn.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
-        self.library_btn.clicked.connect(self._choose_library)
-
-        library_layout = QHBoxLayout()
-        library_layout.addWidget(self.library_path)
-        library_layout.addWidget(self.library_btn)
-
-        # Covers path setting
-        self.covers_label = QLabel("Covers Folder:")
-        self.covers_path = QLineEdit()
-        self.covers_btn = QPushButton("Browse")
-        self.covers_btn.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
-        self.covers_btn.clicked.connect(self._choose_covers)
-
-        covers_layout = QHBoxLayout()
-        covers_layout.addWidget(self.covers_path)
-        covers_layout.addWidget(self.covers_btn)
-
-        # Refresh button
-        self.refresh_btn = QPushButton("Refresh Library")
-        self.refresh_btn.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
-        self.refresh_btn.clicked.connect(self._refresh_library)
-
-        # Save button
-        self.save_btn = QPushButton("Save")
-        self.save_btn.setIcon(self.style().standardIcon(QStyle.SP_DialogSaveButton))
-        self.save_btn.clicked.connect(self.accept)
-
-        layout.addWidget(self.library_label)
-        layout.addLayout(library_layout)
-        layout.addWidget(self.covers_label)
-        layout.addLayout(covers_layout)
-        layout.addWidget(self.refresh_btn)
-        layout.addWidget(self.save_btn)
-
-        # Load saved settings if available
-        self.load_settings()
-
-    def _choose_library(self):
-        path = QFileDialog.getExistingDirectory(self, "Select Library Folder")
-        if path:
-            self.library_path.setText(path)
-
-    def _choose_covers(self):
-        path = QFileDialog.getExistingDirectory(self, "Select Covers Folder")
-        if path:
-            self.covers_path.setText(path)
-
-    def _refresh_library(self):
-        # Save current settings first
-        settings = self.save_settings()
-
-        # Trigger library + cover refresh
-        self.parent().populate_series()
-        precache_covers(settings["library_path"], settings["covers_path"])
-
-        QMessageBox.information(self, "AniPlay", "Library and covers refreshed.")
-
-    def save_settings(self):
-        settings = {
-            "library_path": self.library_path.text(),
-            "covers_path": self.covers_path.text(),
-        }
-        with open("settings.json", "w") as f:
-            json.dump(settings, f, indent=4)
-        return settings
-
-    def load_settings(self):
-        if os.path.exists("settings.json"):
-            with open("settings.json", "r") as f:
-                settings = json.load(f)
-                self.library_path.setText(settings.get("library_path", ""))
-                self.covers_path.setText(settings.get("covers_path", ""))
-
-
-# -----------------------
-# UI Components
-# -----------------------
 class HeaderBar(QFrame):
     def __init__(self, title="AniPlay"):
         super().__init__()
@@ -147,19 +33,13 @@ class HeaderBar(QFrame):
         self.title.setObjectName("HeaderTitle")
         self.title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
 
-        self.hint = QLabel("Arrows • Enter • Esc/Backspace • F11 fullscreen")
+        self.hint = QLabel("Arrows to navigate • Enter to open/play • Esc/Backspace to go back • F11 fullscreen")
         self.hint.setObjectName("HeaderHint")
         self.hint.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
-
-        self.settings_btn = QPushButton()
-        self.settings_btn.setIcon(self.style().standardIcon(QStyle.SP_FileDialogDetailedView))
-        self.settings_btn.setFlat(True)
-        self.settings_btn.setFixedSize(32, 32)
 
         layout.addWidget(self.title, 0, Qt.AlignVCenter)
         layout.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         layout.addWidget(self.hint, 0, Qt.AlignVCenter)
-        layout.addWidget(self.settings_btn, 0, Qt.AlignVCenter)
 
 
 class SeriesGrid(QListWidget):
@@ -218,19 +98,16 @@ class NetflixPage(QWidget):
         self.layout.addWidget(self.body)
 
 
-# -----------------------
-# Main Window
-# -----------------------
 class AniPlayWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, settings: SettingsManager):
         super().__init__()
         self.setWindowTitle("AniPlay")
         self.setMinimumSize(1200, 720)
 
-        cfg = load_settings()
-        self.library_path = cfg.get("library_path", LIBRARY_PATH)
-        self.covers_path = cfg.get("covers_path", COVERS_PATH)
-        self.start_fullscreen = cfg.get("start_fullscreen", False)
+        # ✅ settings integration
+        self.settings = settings
+        self.library_path = os.path.abspath(self.settings.get("library_path"))
+        self.covers_path = os.path.abspath(self.settings.get("covers_path"))
 
         os.makedirs(self.library_path, exist_ok=True)
         os.makedirs(self.covers_path, exist_ok=True)
@@ -258,22 +135,14 @@ class AniPlayWindow(QMainWindow):
         self.episodesPage.body_layout.addWidget(self.episodeGrid)
         self.episodeGrid.itemActivated.connect(self._play_episode_from_item)
 
-        # Settings button
-        self.seriesPage.header.settings_btn.clicked.connect(self.open_settings)
-
         # Styling
         self._apply_styles()
 
-        # Populate series after a tick
+        # Populate series after a tick (UI first)
         QTimer.singleShot(0, self.populate_series)
 
         # Fullscreen toggle via F11
         self._fullscreen = False
-        if self.start_fullscreen:
-            self.showFullScreen()
-            self._fullscreen = True
-        else:
-            self.showMaximized()
 
     # -----------------------
     # Data / Population
@@ -296,8 +165,8 @@ class AniPlayWindow(QMainWindow):
             if os.path.exists(cover_path):
                 item.setIcon(QIcon(cover_path))
             else:
-                placeholder = self._placeholder_poster()
-                item.setIcon(QIcon(placeholder))
+                item.setIcon(QIcon(self._placeholder_poster()))
+            # carry series path in data
             item.setData(Qt.UserRole, os.path.join(self.library_path, name))
             self.seriesGrid.addItem(item)
 
@@ -344,6 +213,7 @@ class AniPlayWindow(QMainWindow):
 
     def keyPressEvent(self, event):
         key = event.key()
+
         if key == Qt.Key_F11:
             self._fullscreen = not self._fullscreen
             if self._fullscreen:
@@ -357,16 +227,8 @@ class AniPlayWindow(QMainWindow):
                 self.stack.setCurrentWidget(self.seriesPage)
                 self.seriesGrid.setFocus()
                 return
-        super().keyPressEvent(event)
 
-    def open_settings(self):
-        dlg = SettingsDialog(self)
-        if dlg.exec_():
-            cfg = dlg.save_settings()
-            self.library_path = cfg.get("library_path", LIBRARY_PATH)
-            self.covers_path = cfg.get("covers_path", COVERS_PATH)
-            self.start_fullscreen = cfg.get("start_fullscreen", False)
-            self.populate_series()
+        super().keyPressEvent(event)
 
     # -----------------------
     # Helpers / Styling
@@ -390,33 +252,60 @@ class AniPlayWindow(QMainWindow):
     def _apply_styles(self):
         self.setStyleSheet("""
             QMainWindow { background-color: #0f0f10; }
-            #HeaderBar { background-color: #141416; border-bottom: 1px solid #232326; }
-            #HeaderTitle { color: #ffffff; font-size: 20px; font-weight: 700; }
-            #HeaderHint { color: #b9b9bd; font-size: 12px; }
-            #SectionTitle { color: #ffffff; font-size: 18px; font-weight: 600; margin: 6px 2px 6px 2px; }
+
+            #HeaderBar {
+                background-color: #141416;
+                border-bottom: 1px solid #232326;
+            }
+            #HeaderTitle {
+                color: #ffffff;
+                font-size: 20px;
+                font-weight: 700;
+            }
+            #HeaderHint {
+                color: #b9b9bd;
+                font-size: 12px;
+            }
+            #SectionTitle {
+                color: #ffffff;
+                font-size: 18px;
+                font-weight: 600;
+                margin: 6px 2px 6px 2px;
+            }
+
             QListWidget#SeriesGrid, QListWidget#EpisodeGrid {
                 background-color: #0f0f10;
                 border: none;
                 color: #e7e7ea;
                 font-size: 13px;
             }
-            QListWidget::item { margin: 6px; padding: 6px 4px 10px 4px; border-radius: 10px; }
-            QListWidget::item:selected { background-color: #1f2a36; border: 2px solid #2491ff; }
-            QListWidget::item:hover { background-color: #17181c; }
+            QListWidget::item {
+                margin: 6px;
+                padding: 6px 4px 10px 4px;
+                border-radius: 10px;
+            }
+            QListWidget::item:selected {
+                background-color: #1f2a36;
+                border: 2px solid #2491ff;
+            }
+            QListWidget::item:hover {
+                background-color: #17181c;
+            }
         """)
 
 
-# -----------------------
-# Entry Point
-# -----------------------
 def main():
-    precache_covers(LIBRARY_PATH, COVERS_PATH)
+    settings = SettingsManager()
+
+    # Pre-cache covers (AniList) before launching the UI
+    precache_covers(settings.get("library_path"), settings.get("covers_path"))
 
     app = QApplication(sys.argv)
     app.setApplicationName("AniPlay")
 
-    win = AniPlayWindow()
-    win.show()  # fullscreen handled inside init
+    win = AniPlayWindow(settings)
+    win.showMaximized()  # Netflix-like fullscreen feel; toggle with F11
+
     sys.exit(app.exec_())
 
 
