@@ -1,41 +1,44 @@
+# settings.py
 import json
 import os
 
-class SettingsManager:
-    DEFAULTS = {
-        "library_path": "library",
-        "covers_path": "covers",
-        "auto_refresh": False
-    }
+SETTINGS_FILE = "settings.json"
 
-    def __init__(self, filename="settings.json"):
-        self.filename = filename
-        self.settings = self.DEFAULTS.copy()
-        self.load()
+# Default settings
+DEFAULT_SETTINGS = {
+    "theme": "light",          # light or dark
+    "covers_enabled": True,    # fetch cover art automatically
+    "precache_covers": False,  # pre-cache covers at startup
+    "scroll_speed": 1,         # integer multiplier
+    "library_path": "library", # path to anime library
+    "covers_path": "covers"    # path to store covers
+}
 
-        # ensure directories exist
-        os.makedirs(self.settings["library_path"], exist_ok=True)
-        os.makedirs(self.settings["covers_path"], exist_ok=True)
+def load_settings():
+    """Load settings from JSON file, fallback to defaults."""
+    if not os.path.exists(SETTINGS_FILE):
+        save_settings(DEFAULT_SETTINGS)
+        return DEFAULT_SETTINGS.copy()
 
-    def load(self):
-        if os.path.exists(self.filename):
-            try:
-                with open(self.filename, "r") as f:
-                    data = json.load(f)
-                    self.settings.update(data)
-            except Exception as e:
-                print(f"[Settings] Failed to load {self.filename}: {e}")
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Merge with defaults in case new keys were added later
+        merged = DEFAULT_SETTINGS.copy()
+        merged.update(data)
+        return merged
+    except Exception:
+        return DEFAULT_SETTINGS.copy()
 
-    def save(self):
-        try:
-            with open(self.filename, "w") as f:
-                json.dump(self.settings, f, indent=4)
-        except Exception as e:
-            print(f"[Settings] Failed to save {self.filename}: {e}")
+def save_settings(settings: dict):
+    """Save settings to JSON file."""
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=4)
+    except Exception as e:
+        print(f"Error saving settings: {e}")
 
-    def get(self, key):
-        return self.settings.get(key, self.DEFAULTS.get(key))
-
-    def set(self, key, value):
-        self.settings[key] = value
-        self.save()
+def reset_settings():
+    """Reset settings to default values."""
+    save_settings(DEFAULT_SETTINGS)
+    return DEFAULT_SETTINGS.copy()
