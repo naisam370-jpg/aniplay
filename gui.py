@@ -4,15 +4,14 @@ from functools import partial
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QListWidget, QListWidgetItem, QStackedWidget, QFrame, QSpacerItem,
-    QSizePolicy, QMessageBox, QPushButton, QDialog, QFormLayout, QComboBox,
-    QDialogButtonBox, QStyle, QCheckBox, QSlider, QAbstractItemView
+    QSizePolicy, QMessageBox, QPushButton, QDialog, QComboBox, QCheckBox, QSlider,
+    QStyle, QAbstractItemView
 )
-from PyQt5.QtGui import QIcon, QPixmap, QColor
-from PyQt5.QtCore import Qt, QSize, QTimer, pyqtSignal, QObject
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtCore import Qt, QSize, QTimer, pyqtSignal
 import PyQt5.QtCore as QtCore
-from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
-from cover_cache import precache_covers, ensure_episode_thumbnail
+from cover_fetcher import precache_covers, ensure_episode_thumbnail
 from settings import load_settings, save_settings
 
 # -------------------------
@@ -197,6 +196,9 @@ class AniPlayWindow(QMainWindow):
         os.makedirs(self.covers_path, exist_ok=True)
         os.makedirs(THUMBS_PATH, exist_ok=True)
 
+        # Load settings
+        self.settings = load_settings()
+
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
@@ -220,39 +222,48 @@ class AniPlayWindow(QMainWindow):
         self.episodeGrid.itemActivated.connect(self._play_episode_from_item)
 
         # Header buttons
-        self.seriesPage.header.refresh_btn.clicked.connect(self.populate_series)
+        self.seriesPage.header.refresh_btn.clicked.connect(self.populate_library)
         self.seriesPage.header.settings_btn.clicked.connect(self.open_settings)
 
         # Styling
-        settings = load_settings()
-        self._apply_styles(dark=(settings.get("theme", "dark") == "dark"))
+        self._apply_styles(dark=(self.settings.get("theme", "Light") == "Dark"))
 
         # Populate series after a tick (UI first)
-        QTimer.singleShot(0, self.populate_series)
+        QTimer.singleShot(0, self.populate_library)
 
         # Fullscreen toggle via F11
         self._fullscreen = False
+
+    # -----------------------
+    # Settings
+    # -----------------------
     def open_settings(self):
         dlg = SettingsDialog(self, self.settings)
         dlg.settings_changed.connect(self.apply_settings)  # listen for updates
         dlg.exec_()
+
     def apply_settings(self, new_settings):
         self.settings.update(new_settings)
         save_settings(self.settings)  # write to JSON
 
-        # Apply changes live
-        self.apply_theme()
-        self.library_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.library_view.verticalScrollBar().setSingleStep(self.settings.get("scroll_speed", 5))
+        # Apply theme
+        self._apply_styles(dark=(self.settings.get("theme", "Light") == "Dark"))
+
+        # Apply scroll speed
+        self.seriesGrid.verticalScrollBar().setSingleStep(self.settings.get("scroll_speed", 5))
+        self.episodeGrid.verticalScrollBar().setSingleStep(self.settings.get("scroll_speed", 5))
 
     # -----------------------
     # Data / Population
     # -----------------------
-    def populate_series(self):
+    def populate_library(self):
         self.seriesGrid.clear()
         if not os.path.isdir(self.library_path):
             QMessageBox.warning(self, "AniPlay", f"Library not found:\n{self.library_path}")
             return
+
+        # Pre-cache covers
+        precache_covers(self.library_path, self.covers_path)
 
         series_folders = [
             d for d in sorted(os.listdir(self.library_path))
@@ -287,7 +298,7 @@ class AniPlayWindow(QMainWindow):
 
         for fname in files:
             fpath = os.path.join(series_path, fname)
-            thumb = ensure_episode_thumbnail(fpath, THUMBS_PATH, seek="00:00:15", width=THUMB_SIZE.width())
+            thumb = ensure_episode_thumbnail(fpath, THUMBS_PATH, width=THUMB_SIZE.width())
             item = QListWidgetItem(QIcon(thumb) if thumb else QIcon(self._placeholder_thumb()), fname)
             item.setTextAlignment(Qt.AlignHCenter)
             item.setData(Qt.UserRole, fpath)
@@ -329,10 +340,6 @@ class AniPlayWindow(QMainWindow):
                 return
 
         super().keyPressEvent(event)
-
-    def open_settings(self):
-        dlg = SettingsDialog(self)
-        dlg.exec_()
 
     # -----------------------
     # Helpers / Styling
@@ -418,8 +425,6 @@ class AniPlayWindow(QMainWindow):
 # Main
 # -------------------------
 def main():
-    precache_covers(LIBRARY_PATH, COVERS_PATH)
-
     app = QApplication(sys.argv)
     app.setApplicationName("AniPlay")
 
