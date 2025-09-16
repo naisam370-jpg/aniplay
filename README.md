@@ -190,7 +190,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 - 📖 **Documentation**: [Wiki](https://github.com/naisam370-jpg/aniplay/wiki)
 - 🐛 **Bug Reports**: [Issues](https://github.com/naisam370-jpg/aniplay/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/naisam370-jpg/aniplay/discussions)
-- 📧 **Email**: developer@aniplay.org
+- 📧 **Email**: naisam370@gmail.com
 
 ## Roadmap
 
