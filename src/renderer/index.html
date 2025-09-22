@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniPlay</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/player.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div id="app">
+        <header class="app-header">
+            <div class="app-title">
+                <h1>AniPlay</h1>
+            </div>
+            <div class="app-controls">
+                <button id="openFile" class="btn btn-primary">Open Video</button>
+            </div>
+        </header>
+
+        <main class="app-main">
+            <div class="video-container">
+                <div id="videoPlayer" class="video-player">
+                    <div class="video-placeholder">
+                        <div class="placeholder-content">
+                            <h2>Welcome to AniPlay</h2>
+                            <p>Click "Open Video" to start watching</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="video-controls">
+                    <button id="playPause" class="control-btn" disabled>
+                        <span class="icon">⏸️</span>
+                    </button>
+                    <div class="progress-container">
+                        <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0" disabled>
+                        <div class="time-display">
+                            <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
+                        </div>
+                    </div>
+                    <div class="volume-container">
+                        <button id="volumeBtn" class="control-btn">🔊</button>
+                        <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="70">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/player.js"></script>
+</body>
+</html>
