@@ -4,14 +4,14 @@
   "description": "Professional anime player with MyAnimeList integration and library management",
   "main": "src/main/index.js",
   "scripts": {
-    "start": "electron .",
+    "start": "electron . --disable-gpu --no-sandbox",
     "dev": "electron . --development",
     "build": "echo 'Build disabled for Node 12 compatibility'",
     "package-linux": "echo 'Package disabled for Node 12 compatibility'"
   },
   "keywords": ["anime", "player", "electron", "mpv", "myanimelist", "library"],
   "author": "Naisam",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "devDependencies": {
     "electron": "11.5.0"
   },

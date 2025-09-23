@@ -81,6 +81,11 @@ class Database {
   }
 
   async addAnime(animeData) {
+    // Check if database is still connected
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
     return new Promise((resolve, reject) => {
       const sql = `
         INSERT OR REPLACE INTO anime 
@@ -113,6 +118,11 @@ class Database {
   }
 
   async getAllAnime() {
+    // Check if database is still connected
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
     return new Promise((resolve, reject) => {
       const sql = 'SELECT * FROM anime ORDER BY title ASC';
       
@@ -131,6 +141,11 @@ class Database {
   }
 
   async getAnimeById(id) {
+    // Check if database is still connected
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
     return new Promise((resolve, reject) => {
       const sql = 'SELECT * FROM anime WHERE id = ?';
       
@@ -150,6 +165,11 @@ class Database {
   }
 
   async getAnimeByPath(path) {
+    // Check if database is still connected
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
     return new Promise((resolve, reject) => {
       const sql = 'SELECT * FROM anime WHERE path = ?';
       
@@ -169,6 +189,11 @@ class Database {
   }
 
   async updateWatchHistory(animeId, episodePath, position, duration) {
+    // Check if database is still connected
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
     return new Promise((resolve, reject) => {
       const sql = `
         INSERT OR REPLACE INTO watch_history 
