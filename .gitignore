@@ -5,6 +5,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Build outputs
+package-lock.json
 build/
 dist/
 *.tgz
