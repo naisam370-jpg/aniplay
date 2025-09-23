@@ -5,7 +5,10 @@ const events = require('../shared/events');
 class AniPlayApp {
     constructor() {
         this.isInitialized = false;
-        this.currentFile = null;
+        this.animeLibrary = [];
+        this.filteredLibrary = [];
+        this.currentGridSize = 200;
+        this.searchTimeout = null;
         this.init();
     }
 
@@ -16,6 +19,7 @@ class AniPlayApp {
             await ipcRenderer.invoke('app:init');
             this.isInitialized = true;
             this.setupEventListeners();
+            this.loadLibrary();
             console.log('AniPlay initialized successfully');
         } catch (error) {
             console.error('Failed to initialize AniPlay:', error);
@@ -23,22 +27,42 @@ class AniPlayApp {
     }
 
     setupEventListeners() {
-        // File open button
-        document.getElementById('openFile').addEventListener('click', () => {
-            this.openFile();
+        // Scan library buttons
+        document.getElementById('scanLibrary').addEventListener('click', () => {
+            this.scanLibrary();
+        });
+        
+        document.getElementById('scanLibraryEmpty').addEventListener('click', () => {
+            this.scanLibrary();
         });
 
-        // Drag and drop
-        document.addEventListener('dragover', (e) => {
-            e.preventDefault();
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
+                this.searchLibrary(e.target.value);
+            }, 300);
         });
 
-        document.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const files = Array.from(e.dataTransfer.files);
-            if (files.length > 0) {
-                this.loadVideo(files[0].path);
-            }
+        // Grid size control
+        const gridSizeSlider = document.getElementById('gridSize');
+        gridSizeSlider.addEventListener('input', (e) => {
+            this.updateGridSize(parseInt(e.target.value));
+        });
+
+        // View toggle buttons
+        document.getElementById('gridView').addEventListener('click', () => {
+            this.setView('grid');
+        });
+        
+        document.getElementById('listView').addEventListener('click', () => {
+            this.setView('list');
+        });
+
+        // Settings
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            this.openSettings();
         });
 
         // Keyboard shortcuts
@@ -47,86 +71,208 @@ class AniPlayApp {
         });
     }
 
-    async openFile() {
+    async loadLibrary() {
+        this.showLoading(true);
+        
         try {
-            const filePath = await ipcRenderer.invoke('file:open');
-            if (filePath) {
-                await this.loadVideo(filePath);
-            }
+            this.animeLibrary = await ipcRenderer.invoke('library:get-all');
+            this.filteredLibrary = [...this.animeLibrary];
+            this.updateLibraryDisplay();
+            this.updateStats();
         } catch (error) {
-            console.error('Error opening file:', error);
+            console.error('Error loading library:', error);
+        } finally {
+            this.showLoading(false);
         }
     }
 
-    async loadVideo(filePath) {
-        if (!this.isInitialized) {
-            console.error('App not initialized');
+    async scanLibrary() {
+        this.showLoading(true, 'Scanning library and fetching covers...');
+        
+        try {
+            const result = await ipcRenderer.invoke('library:scan');
+            
+            console.log('Scan result:', result);
+            
+            // Reload library after scan
+            await this.loadLibrary();
+            
+            // Show scan results
+            const message = `Scan complete!\n\nProcessed: ${result.processed}/${result.total} anime\nErrors: ${result.errors.length}`;
+            
+            if (result.errors.length > 0) {
+                console.log('Scan errors:', result.errors);
+            }
+            
+            alert(message);
+            
+        } catch (error) {
+            console.error('Library scan failed:', error);
+            alert('Library scan failed: ' + error.message);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async searchLibrary(query) {
+        if (!query.trim()) {
+            this.filteredLibrary = [...this.animeLibrary];
+        } else {
+            try {
+                this.filteredLibrary = await ipcRenderer.invoke('library:search', query);
+            } catch (error) {
+                console.error('Search error:', error);
+                this.filteredLibrary = [];
+            }
+        }
+        
+        this.updateLibraryDisplay();
+    }
+
+    updateLibraryDisplay() {
+        const grid = document.getElementById('animeGrid');
+        const emptyState = document.getElementById('emptyState');
+        
+        if (this.filteredLibrary.length === 0) {
+            grid.style.display = 'none';
+            emptyState.style.display = this.animeLibrary.length === 0 ? 'flex' : 'none';
+            
+            if (this.animeLibrary.length > 0) {
+                // Show "no results" message
+                grid.innerHTML = '<div class="no-results">No anime found matching your search.</div>';
+                grid.style.display = 'block';
+            }
+            
             return;
         }
+        
+        emptyState.style.display = 'none';
+        grid.style.display = 'grid';
+        
+        // Update grid template based on current size
+        grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${this.currentGridSize}px, 1fr))`;
+        
+        grid.innerHTML = this.filteredLibrary.map(anime => this.createAnimeCard(anime)).join('');
+        
+        // Add click listeners to cards
+        grid.querySelectorAll('.anime-card').forEach((card, index) => {
+            card.addEventListener('click', () => {
+                this.openAnimeDetails(this.filteredLibrary[index]);
+            });
+        });
+    }
 
-        try {
-            console.log('Loading video:', filePath);
-            const result = await ipcRenderer.invoke(events.VIDEO_LOAD, filePath);
-            
-            if (result.success) {
-                this.currentFile = filePath;
-                this.updateUI('loaded');
-                console.log('Video loaded successfully');
-            } else {
-                console.error('Failed to load video:', result.error);
-                this.showError('Failed to load video: ' + result.error);
-            }
-        } catch (error) {
-            console.error('Error loading video:', error);
-            this.showError('Error loading video');
+    createAnimeCard(anime) {
+        const coverPath = anime.cover 
+            ? `covers/${anime.cover}` 
+            : null;
+        
+        const score = anime.score ? anime.score.toFixed(1) : 'N/A';
+        const episodeCount = anime.episodes || 'Unknown';
+        
+        // Limit genres display
+        const genres = Array.isArray(anime.genres) ? anime.genres.slice(0, 3) : [];
+        
+        return `
+            <div class="anime-card" data-anime-id="${anime.id}">
+                <div class="anime-cover">
+                    ${coverPath 
+                        ? `<img src="${coverPath}" alt="${anime.title}" loading="lazy">` 
+                        : `<div class="cover-placeholder">🎌</div>`
+                    }
+                </div>
+                <div class="anime-info">
+                    <h3 class="anime-title">${this.escapeHtml(anime.title)}</h3>
+                    <div class="anime-meta">
+                        <span class="anime-score">${score}</span>
+                        <span class="anime-episodes">${episodeCount} eps</span>
+                    </div>
+                    <div class="anime-genres">
+                        ${genres.map(genre => `<span class="genre-tag">${this.escapeHtml(genre)}</span>`).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    openAnimeDetails(anime) {
+        window.modalManager.openAnimeModal(anime);
+    }
+
+    updateGridSize(size) {
+        this.currentGridSize = size;
+        this.updateLibraryDisplay();
+    }
+
+    setView(viewType) {
+        // Update button states
+        document.querySelector('.view-btn.active').classList.remove('active');
+        document.getElementById(viewType + 'View').classList.add('active');
+        
+        // Update grid display
+        const grid = document.getElementById('animeGrid');
+        if (viewType === 'list') {
+            grid.classList.add('list-view');
+        } else {
+            grid.classList.remove('list-view');
         }
     }
 
-    updateUI(state) {
-        const placeholder = document.querySelector('.video-placeholder');
-        const playPauseBtn = document.getElementById('playPause');
-        const progressBar = document.getElementById('progressBar');
+    updateStats() {
+        document.getElementById('totalCount').textContent = this.animeLibrary.length;
+    }
 
-        switch (state) {
-            case 'loaded':
-                if (placeholder) {
-                    placeholder.style.display = 'none';
-                }
-                playPauseBtn.disabled = false;
-                progressBar.disabled = false;
-                break;
-            case 'playing':
-                playPauseBtn.innerHTML = '<span class="icon">⏸️</span>';
-                break;
-            case 'paused':
-                playPauseBtn.innerHTML = '<span class="icon">▶️</span>';
-                break;
+    showLoading(show, message = 'Loading library...') {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (show) {
+            loadingIndicator.querySelector('p').textContent = message;
+            loadingIndicator.classList.remove('hidden');
+        } else {
+            loadingIndicator.classList.add('hidden');
         }
     }
 
-    showError(message) {
-        // Simple error display - could be enhanced with a proper modal
-        console.error(message);
-        alert(message);
+    openSettings() {
+        window.modalManager.openSettingsModal();
     }
 
     handleKeyboard(e) {
-        if (!this.currentFile) return;
-
         switch (e.code) {
-            case 'Space':
-                e.preventDefault();
-                document.getElementById('playPause').click();
+            case 'KeyF':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    document.getElementById('searchInput').focus();
+                }
                 break;
-            case 'ArrowLeft':
+            case 'F5':
                 e.preventDefault();
-                // Seek backward
+                this.scanLibrary();
                 break;
-            case 'ArrowRight':
-                e.preventDefault();
-                // Seek forward
+            case 'Escape':
+                document.getElementById('searchInput').value = '';
+                this.searchLibrary('');
                 break;
         }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    formatFileSize(bytes) {
+        if (!bytes) return 'Unknown';
+        
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        let i = 0;
+        
+        while (bytes >= 1024 && i < sizes.length - 1) {
+            bytes /= 1024;
+            i++;
+        }
+        
+        return `${bytes.toFixed(1)} ${sizes[i]}`;
     }
 }
 

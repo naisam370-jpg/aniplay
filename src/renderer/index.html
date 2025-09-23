@@ -3,53 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AniPlay</title>
+    <title>AniPlay - Anime Library Manager</title>
     <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/player.css">
+    <link rel="stylesheet" href="css/library.css">
     <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
     <div id="app">
         <header class="app-header">
             <div class="app-title">
-                <h1>AniPlay</h1>
+                <h1>🎌 AniPlay</h1>
+                <span class="subtitle">Anime Library Manager</span>
             </div>
-            <div class="app-controls">
-                <button id="openFile" class="btn btn-primary">Open Video</button>
+            <div class="header-controls">
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search anime..." class="search-input">
+                    <button id="searchBtn" class="btn btn-icon">🔍</button>
+                </div>
+                <button id="scanLibrary" class="btn btn-primary">📚 Scan Library</button>
+                <button id="settingsBtn" class="btn btn-secondary">⚙️</button>
             </div>
         </header>
 
         <main class="app-main">
-            <div class="video-container">
-                <div id="videoPlayer" class="video-player">
-                    <div class="video-placeholder">
-                        <div class="placeholder-content">
-                            <h2>Welcome to AniPlay</h2>
-                            <p>Click "Open Video" to start watching</p>
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Library</h3>
+                    <div class="library-stats">
+                        <div class="stat">
+                            <span class="stat-label">Total Anime:</span>
+                            <span id="totalCount" class="stat-value">0</span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="video-controls">
-                    <button id="playPause" class="control-btn" disabled>
-                        <span class="icon">⏸️</span>
-                    </button>
-                    <div class="progress-container">
-                        <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0" disabled>
-                        <div class="time-display">
-                            <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
+                <div class="sidebar-section">
+                    <h3>View Options</h3>
+                    <div class="view-controls">
+                        <label>Grid Size:</label>
+                        <input type="range" id="gridSize" min="150" max="300" value="200" class="slider">
+                        <div class="view-buttons">
+                            <button id="gridView" class="view-btn active">🔲 Grid</button>
+                            <button id="listView" class="view-btn">📄 List</button>
                         </div>
-                    </div>
-                    <div class="volume-container">
-                        <button id="volumeBtn" class="control-btn">🔊</button>
-                        <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="70">
                     </div>
                 </div>
             </div>
+
+            <div class="content-area">
+                <div id="loadingIndicator" class="loading hidden">
+                    <div class="loading-spinner"></div>
+                    <p>Loading library...</p>
+                </div>
+
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-content">
+                        <h2>Welcome to AniPlay!</h2>
+                        <p>Your anime library is empty. Here's how to get started:</p>
+                        <ol>
+                            <li>Create folders in the <code>anime-library/</code> directory</li>
+                            <li>Name folders with anime titles (e.g., "Attack on Titan")</li>
+                            <li>Place your video files inside these folders</li>
+                            <li>Click "Scan Library" to fetch covers and info from MyAnimeList</li>
+                        </ol>
+                        <button id="scanLibraryEmpty" class="btn btn-primary">📚 Scan Library Now</button>
+                    </div>
+                </div>
+
+                <div id="animeGrid" class="anime-grid"></div>
+            </div>
         </main>
+
+        <!-- Anime Detail Modal -->
+        <div id="animeModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Anime Title</h2>
+                    <button id="closeModal" class="btn btn-icon">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="anime-details">
+                        <div class="anime-cover-large">
+                            <img id="modalCover" src="" alt="Anime Cover">
+                        </div>
+                        <div class="anime-info">
+                            <div class="info-row">
+                                <span class="label">Score:</span>
+                                <span id="modalScore" class="value">N/A</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Episodes:</span>
+                                <span id="modalEpisodes" class="value">N/A</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Status:</span>
+                                <span id="modalStatus" class="value">N/A</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Year:</span>
+                                <span id="modalYear" class="value">N/A</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Genres:</span>
+                                <span id="modalGenres" class="value">N/A</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="anime-description">
+                        <h3>Synopsis</h3>
+                        <p id="modalDescription">No description available.</p>
+                    </div>
+                    <div class="episodes-section">
+                        <h3>Episodes</h3>
+                        <div id="episodesList" class="episodes-list">
+                            <div class="loading-episodes">Loading episodes...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="playRandomEpisode" class="btn btn-primary">🎲 Random Episode</button>
+                    <button id="continueWatching" class="btn btn-success">▶️ Continue Watching</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button id="closeSettings" class="btn btn-icon">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <h3>Library Settings</h3>
+                        <div class="setting-item">
+                            <label for="libraryPath">Library Path:</label>
+                            <div class="path-input">
+                                <input type="text" id="libraryPath" value="./anime-library" readonly>
+                                <button id="selectLibraryPath" class="btn btn-secondary">Browse</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Appearance</h3>
+                        <div class="setting-item">
+                            <label for="themeSelect">Theme:</label>
+                            <select id="themeSelect">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/main.js"></script>
-    <script src="js/player.js"></script>
+    <script src="js/library.js"></script>
+    <script src="js/modal.js"></script>
 </body>
 </html>

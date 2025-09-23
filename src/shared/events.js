@@ -6,15 +6,16 @@ module.exports = {
   VIDEO_SEEK: 'video:seek',
   VIDEO_STOP: 'video:stop',
   
-  // Playlist events
-  PLAYLIST_ADD: 'playlist:add',
-  PLAYLIST_REMOVE: 'playlist:remove',
-  PLAYLIST_NEXT: 'playlist:next',
-  PLAYLIST_PREV: 'playlist:prev',
+  // Library events
+  LIBRARY_SCAN: 'library:scan',
+  LIBRARY_SEARCH: 'library:search',
+  ANIME_SELECT: 'anime:select',
+  ANIME_GET_EPISODES: 'anime:get-episodes',
   
   // UI events
   UI_FULLSCREEN: 'ui:fullscreen',
   UI_VOLUME: 'ui:volume',
+  UI_THEME: 'ui:theme',
   
   // File events
   FILE_OPEN: 'file:open',

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniPlay - Player</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/player.css">
+</head>
+<body class="player-body">
+    <div id="playerApp">
+        <div class="player-container">
+            <div id="videoPlayer" class="video-player">
+                <div class="video-placeholder">
+                    <div class="placeholder-content">
+                        <h2 id="animeTitle">Loading...</h2>
+                        <p id="episodeTitle">Preparing episode...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-controls">
+                <button id="playPause" class="control-btn" disabled>
+                    <span class="icon">⏸️</span>
+                </button>
+                
+                <button id="prevEpisode" class="control-btn">⏮️</button>
+                <button id="nextEpisode" class="control-btn">⏭️</button>
+                
+                <div class="progress-container">
+                    <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0" disabled>
+                    <div class="time-display">
+                        <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
+                    </div>
+                </div>
+                
+                <div class="volume-container">
+                    <button id="volumeBtn" class="control-btn">🔊</button>
+                    <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="70">
+                </div>
+                
+                <button id="fullscreenBtn" class="control-btn">⛶</button>
+            </div>
+        </div>
+        
+        <div class="episode-sidebar">
+            <div class="episode-header">
+                <h3>Episodes</h3>
+                <button id="closeSidebar" class="btn btn-icon">→</button>
+            </div>
+            <div id="episodeList" class="episode-list">
+                <!-- Episodes will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/player.js"></script>
+</body>
+</html>

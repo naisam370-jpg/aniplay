@@ -1,8 +1,8 @@
 # Icons Directory
 
 Place your application icons here:
-- icon.png (main app icon)
+- icon.png (main app icon - 512x512px recommended)
 - icon.ico (Windows icon)
 - icon.icns (macOS icon)
 
-SVG icons for controls should go in subdirectories.
+The app uses emoji icons in the UI, but you can replace them with custom SVG icons.

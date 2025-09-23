@@ -1,14 +1,53 @@
-const { ipcMain } = require('electron');
+const { ipcMain, dialog } = require('electron');
 const MPVController = require('./video/mpv-controller');
 const events = require('../shared/events');
+const path = require('path');
 
 let mpvController = null;
 
-function setupIpcHandlers() {
-  // Initialize MPV controller
+function setupIpcHandlers(libraryManager, database) {
+  // App initialization
   ipcMain.handle('app:init', async () => {
     mpvController = new MPVController();
     return { success: true };
+  });
+
+  // Library management
+  ipcMain.handle('library:scan', async () => {
+    try {
+      const result = await libraryManager.scanLibrary();
+      return result;
+    } catch (error) {
+      console.error('Library scan error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('library:get-all', async () => {
+    try {
+      return await database.getAllAnime();
+    } catch (error) {
+      console.error('Get library error:', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('library:get-anime', async (event, animeId) => {
+    try {
+      return await database.getAnimeById(animeId);
+    } catch (error) {
+      console.error('Get anime error:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('library:search', async (event, query) => {
+    try {
+      return await libraryManager.searchLibrary(query);
+    } catch (error) {
+      console.error('Search error:', error);
+      return [];
+    }
   });
 
   // Video controls
@@ -33,17 +72,22 @@ function setupIpcHandlers() {
   });
 
   // File operations
-  ipcMain.handle('file:open', async () => {
-    const { dialog } = require('electron');
+  ipcMain.handle('file:select-library', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      filters: [
-        { name: 'Video Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'] },
-        { name: 'All Files', extensions: ['*'] }
-      ]
+      properties: ['openDirectory'],
+      title: 'Select Anime Library Directory'
     });
     
     return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle('anime:get-episodes', async (event, animePath) => {
+    try {
+      return await libraryManager.getAnimeEpisodes(animePath);
+    } catch (error) {
+      console.error('Get episodes error:', error);
+      return [];
+    }
   });
 }
 

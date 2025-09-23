@@ -32,8 +32,13 @@ Thumbs.db
 # Electron
 out/
 
-# Misc
-.env
-.env.local
-library/
-covers/
+# Library data
+covers/*
+!covers/.gitkeep
+anime-library/*
+!anime-library/.gitkeep
+data/*.db
+
+# Cache
+.cache/
+temp/

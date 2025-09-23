@@ -1,0 +1,15 @@
+# Anime Library Directory
+
+Place your anime folders here with the following structure:
+
+anime-library/
+├── [Anime Name]/
+│   ├── Season 1/ (optional)
+│   ├── Season 2/ (optional)
+│   ├── Episode 01.mkv
+│   ├── Episode 02.mkv
+│   └── ...
+└── [Another Anime]/
+    └── episodes...
+
+The folder names should match or be close to the anime titles on MyAnimeList for best results.
