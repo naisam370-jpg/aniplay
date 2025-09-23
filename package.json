@@ -11,7 +11,7 @@
   },
   "keywords": ["anime", "player", "electron", "mpv", "myanimelist", "library"],
   "author": "Naisam",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "devDependencies": {
     "electron": "11.5.0"
   },
