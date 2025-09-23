@@ -32,9 +32,12 @@ class AniPlayApp {
             this.scanLibrary();
         });
         
-        document.getElementById('scanLibraryEmpty').addEventListener('click', () => {
-            this.scanLibrary();
-        });
+        const scanLibraryEmpty = document.getElementById('scanLibraryEmpty');
+        if (scanLibraryEmpty) {
+            scanLibraryEmpty.addEventListener('click', () => {
+                this.scanLibrary();
+            });
+        }
 
         // Search functionality
         const searchInput = document.getElementById('searchInput');
@@ -60,7 +63,7 @@ class AniPlayApp {
             this.setView('list');
         });
 
-        // Settings
+        // Settings - Fixed to wait for modal manager
         document.getElementById('settingsBtn').addEventListener('click', () => {
             this.openSettings();
         });
@@ -196,7 +199,12 @@ class AniPlayApp {
     }
 
     openAnimeDetails(anime) {
-        window.modalManager.openAnimeModal(anime);
+        // Wait for modal manager to be available
+        if (window.modalManager) {
+            window.modalManager.openAnimeModal(anime);
+        } else {
+            console.error('Modal manager not available yet');
+        }
     }
 
     updateGridSize(size) {
@@ -233,7 +241,20 @@ class AniPlayApp {
     }
 
     openSettings() {
-        window.modalManager.openSettingsModal();
+        // Wait for modal manager to be available
+        if (window.modalManager) {
+            window.modalManager.openSettingsModal();
+        } else {
+            // Fallback - try again in a moment
+            setTimeout(() => {
+                if (window.modalManager) {
+                    window.modalManager.openSettingsModal();
+                } else {
+                    console.error('Modal manager not available');
+                    alert('Settings modal not ready yet. Please try again.');
+                }
+            }, 100);
+        }
     }
 
     handleKeyboard(e) {
