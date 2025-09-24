@@ -27,6 +27,16 @@ class AniPlayApp {
     }
 
     setupEventListeners() {
+        // Refresh library button
+        document.getElementById('refreshLibrary').addEventListener('click', () => {
+            this.refreshLibrary();
+        });
+
+        // Reset library button  
+        document.getElementById('resetLibrary').addEventListener('click', () => {
+            this.resetLibrary();
+        });
+
         // Scan library buttons
         document.getElementById('scanLibrary').addEventListener('click', () => {
             this.scanLibrary();
@@ -117,6 +127,48 @@ class AniPlayApp {
         }
     }
 
+    async refreshLibrary() {    
+        const confirmed = confirm('Refresh library? This will update existing anime with fresh data from MyAnimeList.');
+    if (!confirmed) return;
+
+        this.showLoading(true, 'Refreshing library...');
+
+        try {
+            const result = await ipcRenderer.invoke('library:refresh');
+            await this.loadLibrary();
+
+            let message = `🔄 Library refresh complete!\n\n`;
+            message += `📊 Results:\n`;
+            message += `• Added: ${result.added || 0}\n`;
+            message += `• Updated: ${result.updated || 0}\n`;
+            message += `• Removed: ${result.removed || 0}\n`;
+
+            alert(message);
+
+        } catch (error) {
+            console.error('❌ Refresh failed:', error);
+            alert('Refresh failed: ' + error.message);
+        } finally {
+            this.showLoading(false);
+        }
+    }
+    async resetLibrary() {
+        const confirmed = confirm('⚠️ This will delete your entire library and all cover images. Are you sure?');
+        if (!confirmed) return;
+
+        this.showLoading(true, 'Resetting library...');
+
+        try {
+            const result = await window.electron.ipcRenderer.invoke('library:reset');
+            await this.loadLibrary();
+        
+            alert(`🗑️ Library reset complete!\n\nRescanned ${result.processed}/${result.total} anime folders.`);
+        } catch (error) {
+            console.error('❌ Reset failed:', error);
+            alert('Reset failed: ' + error.message);
+        }
+    }
+
     async searchLibrary(query) {
         if (!query.trim()) {
             this.filteredLibrary = [...this.animeLibrary];
@@ -141,7 +193,6 @@ class AniPlayApp {
             emptyState.style.display = this.animeLibrary.length === 0 ? 'flex' : 'none';
             
             if (this.animeLibrary.length > 0) {
-                // Show "no results" message
                 grid.innerHTML = '<div class="no-results">No anime found matching your search.</div>';
                 grid.style.display = 'block';
             }
@@ -151,13 +202,35 @@ class AniPlayApp {
         
         emptyState.style.display = 'none';
         grid.style.display = 'grid';
-        
-        // Update grid template based on current size
         grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${this.currentGridSize}px, 1fr))`;
-        
-        grid.innerHTML = this.filteredLibrary.map(anime => this.createAnimeCard(anime)).join('');
-        
-        // Add click listeners to cards
+
+        // Clear and append element nodes (not HTML strings)
+        grid.innerHTML = '';
+        this.filteredLibrary.forEach((anime) => {
+            const el = this.createAnimeCard(anime);
+            grid.appendChild(el);
+        });
+
+        // Resolve local covers AFTER elements are in DOM
+        const localImgs = grid.querySelectorAll('img.anime-cover[data-local-cover]');
+        localImgs.forEach(img => {
+            const coverPath = img.getAttribute('data-local-cover');
+            const tryPath = coverPath; // keep as stored; main handler will try candidates
+            ipcRenderer.invoke('file:read-base64', tryPath)
+                .then(dataUrl => {
+                    if (dataUrl) {
+                        img.src = dataUrl;
+                        img.removeAttribute('data-local-cover');
+                    } else {
+                        console.warn('file:read-base64 returned null for', tryPath);
+                    }
+                })
+                .catch(err => {
+                    console.warn('Failed to load local cover via IPC:', tryPath, err);
+                });
+        });
+
+        // Add click listeners to cards (use current DOM order)
         grid.querySelectorAll('.anime-card').forEach((card, index) => {
             card.addEventListener('click', () => {
                 this.openAnimeDetails(this.filteredLibrary[index]);
@@ -166,36 +239,66 @@ class AniPlayApp {
     }
 
     createAnimeCard(anime) {
-        const coverPath = anime.cover 
-            ? `covers/${anime.cover}` 
-            : null;
-        
-        const score = anime.score ? anime.score.toFixed(1) : 'N/A';
-        const episodeCount = anime.episodes || 'Unknown';
-        
-        // Limit genres display
-        const genres = Array.isArray(anime.genres) ? anime.genres.slice(0, 3) : [];
-        
-        return `
-            <div class="anime-card" data-anime-id="${anime.id}">
-                <div class="anime-cover">
-                    ${coverPath 
-                        ? `<img src="${coverPath}" alt="${anime.title}" loading="lazy">` 
-                        : `<div class="cover-placeholder">🎌</div>`
-                    }
-                </div>
-                <div class="anime-info">
-                    <h3 class="anime-title">${this.escapeHtml(anime.title)}</h3>
-                    <div class="anime-meta">
-                        <span class="anime-score">${score}</span>
-                        <span class="anime-episodes">${episodeCount} eps</span>
-                    </div>
-                    <div class="anime-genres">
-                        ${genres.map(genre => `<span class="genre-tag">${this.escapeHtml(genre)}</span>`).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+        const card = document.createElement('div');
+        card.className = 'anime-card';
+        card.dataset.animeId = anime.id;
+
+        const img = document.createElement('img');
+        img.className = 'anime-cover';
+
+        // Inline SVG placeholder data URL
+        const placeholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420" viewBox="0 0 300 420">
+               <rect width="100%" height="100%" fill="#efefef"/>
+               <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#888" font-family="sans-serif" font-size="18">No cover</text>
+             </svg>`
+        );
+
+        let src = anime.cover || anime.image_url || '';
+
+        // if remote URL or already data url, use directly
+        if (src && /^https?:\/\//i.test(src)) {
+            img.src = src;
+        } else if (src && src.startsWith('data:')) {
+            img.src = src;
+        } else if (src) {
+            // Local path: set placeholder and tag element for later resolution
+            img.src = placeholder;
+            img.setAttribute('data-local-cover', src);
+        } else {
+            img.src = placeholder;
+        }
+
+        img.onerror = () => { img.src = placeholder; };
+        card.appendChild(img);
+
+        const title = document.createElement('h3');
+        title.className = 'anime-title';
+        title.textContent = anime.title;
+        card.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'anime-meta';
+
+        const score = document.createElement('span');
+        score.className = 'anime-score';
+        score.textContent = anime.score ? anime.score.toFixed(1) : 'N/A';
+        meta.appendChild(score);
+
+        const episodeCount = document.createElement('span');
+        episodeCount.className = 'anime-episodes';
+        episodeCount.textContent = (anime.episodes || 'Unknown') + ' eps';
+        meta.appendChild(episodeCount);
+
+        card.appendChild(meta);
+
+        const genres = document.createElement('div');
+        genres.className = 'anime-genres';
+        genres.innerHTML = Array.isArray(anime.genres) ? anime.genres.slice(0, 3).map(genre => `<span class="genre-tag">${this.escapeHtml(genre)}</span>`).join('') : '';
+        card.appendChild(genres);
+
+        // return element instead of outerHTML
+        return card;
     }
 
     openAnimeDetails(anime) {

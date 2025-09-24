@@ -37,7 +37,7 @@ anime-library/
 npm install
 
 # Run in development mode
-npm run dev
+npm run dev -- --disable-gpu --no-sandbox
 
 # Build for production
 npm run build

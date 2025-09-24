@@ -43,3 +43,5 @@ data/*.db
 # Cache
 .cache/
 temp/
+
+src/main/api/mal-api-simple.js

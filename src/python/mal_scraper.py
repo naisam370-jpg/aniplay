@@ -15,21 +15,19 @@ class MALScraper:
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1'
         })
         
     def clean_query(self, query):
         """Clean anime title for better search results"""
-        # Remove common tags and indicators
         cleaned = re.sub(r'\[.*?\]', '', query)  # Remove [brackets]
         cleaned = re.sub(r'\(.*?\)', '', cleaned)  # Remove (parentheses)
-        cleaned = re.sub(r'Season\s+\d+', '', cleaned, flags=re.IGNORECASE)  # Remove Season X
-        cleaned = re.sub(r'\bS\d+\b', '', cleaned, flags=re.IGNORECASE)  # Remove S1, S2
+        cleaned = re.sub(r'Season\s+\d+', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\bS\d+\b', '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'\b(1080p|720p|480p|BD|BluRay|DVD|WEB|TV)\b', '', cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(r'\b(19|20)\d{2}\b', '', cleaned)  # Remove years
-        cleaned = re.sub(r'\s+', ' ', cleaned)  # Normalize whitespace
+        cleaned = re.sub(r'\b(19|20)\d{2}\b', '', cleaned)
+        cleaned = re.sub(r'\s+', ' ', cleaned)
         cleaned = cleaned.strip(' -_.')
         
         return cleaned
@@ -72,40 +70,52 @@ class MALScraper:
             return self._create_fallback_data(query, str(e))
     
     def _perform_search(self, query):
-        """Perform actual search request"""
+        """Perform actual search request (more robust parsing + basic bot detection)."""
         search_url = f"{self.base_url}/search/all"
         params = {
             'q': query,
             'cat': 'anime'
         }
         
-        response = self.session.get(search_url, params=params, timeout=10)
+        # include a Referer (helps avoid trivial blocks) and reuse UA
+        headers = {
+            'Referer': f'{self.base_url}/',
+            'User-Agent': self.session.headers.get('User-Agent', '')
+        }
+        response = self.session.get(search_url, params=params, headers=headers, timeout=15)
         response.raise_for_status()
+
+        text = response.text
+
+        # basic bot/captcha detection
+        low = text.lower()
+        if 'captcha' in low or 'are you human' in low or 'please enable javascript' in low or 'access denied' in low:
+            raise RuntimeError("Blocked by MAL / Cloudflare (captcha or bot protection detected)")
+
+        # debug: print a short snippet so caller can inspect unexpected pages
+        print(f"[mal_scraper] search response {response.status_code}, len={len(text)}", file=sys.stderr)
+        print(text[:1000].replace('\n', ' '), file=sys.stderr)
         
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Find first anime result
-        anime_result = soup.find('article', class_='list') or soup.find('div', class_='list')
-        
-        if not anime_result:
+        soup = BeautifulSoup(text, 'html.parser')
+
+        # Find the first anchor linking to an anime page anywhere on the search results page.
+        link = soup.find('a', href=re.compile(r'^/anime/\d+(/|$)'))
+        if not link:
+            # fallback: any link that contains '/anime/<id>'
+            candidates = soup.select('a[href*="/anime/"]')
+            if candidates:
+                link = candidates[0]
+
+        if not link:
             return None
-            
-        # Extract title and URL
-        title_link = anime_result.find('a')
-        if not title_link:
-            return None
-            
-        title = title_link.get_text(strip=True)
-        anime_url = title_link.get('href')
-        
-        if not anime_url.startswith('http'):
-            anime_url = f"{self.base_url}{anime_url}"
-            
-        print(f"📋 Getting details for: {title}", file=sys.stderr)
-        
-        # Get detailed information
+
+        title = link.get_text(strip=True) or link.get('title') or ''
+        anime_url = link.get('href')
+        anime_url = urllib.parse.urljoin(self.base_url, anime_url)
+
+        print(f"📋 Getting details for: {title} -> {anime_url}", file=sys.stderr)
         details = self._get_anime_details(anime_url)
-        
+
         return {
             'title': title,
             'url': anime_url,
@@ -113,77 +123,137 @@ class MALScraper:
         }
     
     def _get_anime_details(self, url):
-        """Get detailed anime information from anime page"""
+        """Get detailed anime information from anime page (improved detection + debug)."""
         try:
-            response = self.session.get(url, timeout=10)
+            headers = {
+                'Referer': self.base_url + '/',
+                'User-Agent': self.session.headers.get('User-Agent', '')
+            }
+            response = self.session.get(url, headers=headers, timeout=15)
             response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
+
+            text = response.text
+            low = text.lower()
+            if 'captcha' in low or 'are you human' in low or 'please enable javascript' in low or 'access denied' in low:
+                raise RuntimeError("Blocked by MAL / Cloudflare (captcha or bot protection detected)")
+
+            soup = BeautifulSoup(text, 'html.parser')
             
             details = {}
             
-            # Image URL
-            img_tag = soup.find('img', {'data-src': True}) or soup.find('img', {'src': True})
-            if img_tag:
-                details['image_url'] = img_tag.get('data-src') or img_tag.get('src')
+            # Image URL - prefer og:image meta, then fallbacks
+            og_img = soup.find('meta', property='og:image')
+            if og_img and og_img.get('content'):
+                details['image_url'] = og_img.get('content')
             else:
-                details['image_url'] = None
-                
-            # Synopsis
-            synopsis_elem = soup.find('p', itemprop='description')
-            if not synopsis_elem:
-                synopsis_elem = soup.find('div', class_='synopsis')
-                if synopsis_elem:
-                    synopsis_elem = synopsis_elem.find('p')
-                    
-            if synopsis_elem:
-                details['synopsis'] = synopsis_elem.get_text(strip=True)
+                img_selectors = [
+                    'img[data-src*="myanimelist"]',
+                    'img[src*="myanimelist"]',
+                    '.leftside img',
+                    'img[itemprop="image"]'
+                ]
+                img_url = None
+                for selector in img_selectors:
+                    img_tag = soup.select_one(selector)
+                    if img_tag:
+                        img_url = img_tag.get('data-src') or img_tag.get('src')
+                        if img_url:
+                            break
+                details['image_url'] = img_url
+
+            # Synopsis - try meta description, then itemprop or synopsis blocks
+            synopsis = None
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                synopsis = meta_desc.get('content').strip()
             else:
-                details['synopsis'] = 'No description available.'
+                synopsis_selectors = [
+                    'p[itemprop="description"]',
+                    '.synopsis p',
+                    'span[itemprop="description"]',
+                    '#content .spaceit_pad'  # MAL often uses .spaceit_pad for info blocks
+                ]
+                for selector in synopsis_selectors:
+                    synopsis_elem = soup.select_one(selector)
+                    if synopsis_elem:
+                        txt = synopsis_elem.get_text(separator=' ', strip=True)
+                        if len(txt) > 20:
+                            synopsis = txt
+                            break
+            details['synopsis'] = synopsis or 'No description available.'
                 
             # Score
-            score_elem = soup.find('div', class_='score-label')
-            if score_elem:
-                score_text = score_elem.get_text(strip=True)
-                try:
-                    details['score'] = float(score_text)
-                except:
-                    details['score'] = 0.0
-            else:
-                details['score'] = 0.0
+            score = None
+            score_selectors = [
+                'span[itemprop="ratingValue"]',
+                '.score-label',
+                '[data-title*="score"]',
+                '.fl-l.score'
+            ]
+            for selector in score_selectors:
+                score_elem = soup.select_one(selector)
+                if score_elem:
+                    score_text = score_elem.get_text(strip=True)
+                    score_match = re.search(r'(\d+\.?\d*)', score_text)
+                    if score_match:
+                        try:
+                            score = float(score_match.group(1))
+                            break
+                        except:
+                            continue
+            details['score'] = score if score is not None else 0.0
                 
-            # Episodes
-            episodes_elem = soup.find('span', string='Episodes:')
-            if episodes_elem and episodes_elem.next_sibling:
-                try:
-                    details['episodes'] = int(episodes_elem.next_sibling.strip())
-                except:
-                    details['episodes'] = 0
-            else:
-                details['episodes'] = 0
-                
-            # Status
-            status_elem = soup.find('span', string='Status:')
-            if status_elem and status_elem.next_sibling:
-                details['status'] = status_elem.next_sibling.strip()
-            else:
-                details['status'] = 'Unknown'
-                
-            # Year (from aired date)
-            aired_elem = soup.find('span', string='Aired:')
-            details['year'] = None
-            if aired_elem and aired_elem.next_sibling:
-                aired_text = aired_elem.next_sibling.strip()
-                year_match = re.search(r'(\d{4})', aired_text)
-                if year_match:
-                    details['year'] = int(year_match.group(1))
+            # Episodes, Status, Year - regex over page text (robust fallback)
+            page_text = soup.get_text(separator=' ', strip=True)
+            episodes_matches = [
+                re.search(r'Episodes:\s*(\d+)', page_text, re.IGNORECASE),
+                re.search(r'"episodes":\s*(\d+)', page_text),
+                re.search(r'(\d+)\s*episodes?', page_text, re.IGNORECASE)
+            ]
+            episodes = None
+            for match in episodes_matches:
+                if match:
+                    try:
+                        episodes = int(match.group(1))
+                        break
+                    except:
+                        continue
+            details['episodes'] = episodes if episodes is not None else 0
+
+            status = None
+            status_matches = [
+                re.search(r'Status:\s*([^<\n]+)', page_text, re.IGNORECASE),
+                re.search(r'"status"\s*:\s*"([^"]+)"', page_text)
+            ]
+            for match in status_matches:
+                if match:
+                    status = match.group(1).strip()
+                    break
+            details['status'] = status or 'Unknown'
+
+            year = None
+            year_matches = [
+                re.search(r'Aired:\s*[^<\n]*(\d{4})', page_text, re.IGNORECASE),
+                re.search(r'"aired".*?(\d{4})', page_text),
+                re.search(r'(\d{4})', page_text)
+            ]
+            for match in year_matches:
+                if match:
+                    try:
+                        y = int(match.group(1))
+                        if 1950 <= y <= 2030:
+                            year = y
+                            break
+                    except:
+                        continue
+            details['year'] = year
                     
             # Genres
             details['genres'] = []
             genre_links = soup.find_all('a', href=re.compile(r'/anime/genre/\d+'))
             for link in genre_links[:6]:  # Limit to 6 genres
                 genre = link.get_text(strip=True)
-                if genre and genre not in details['genres']:
+                if genre and len(genre) > 1 and genre not in details['genres']:
                     details['genres'].append(genre)
             
             print(f"📊 Extracted: score={details['score']}, eps={details['episodes']}, genres={len(details['genres'])}", file=sys.stderr)
@@ -236,11 +306,10 @@ class MALScraper:
 
 def main():
     if len(sys.argv) < 2:
-        print(json.dumps({'error': 'No query provided'}))
+        print(json.dumps({'error': 'No command provided'}))
         return
         
     command = sys.argv[1]
-    
     scraper = MALScraper()
     
     if command == 'search':

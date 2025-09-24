@@ -117,12 +117,154 @@ class Database {
     });
   }
 
+  // Upsert / compatibility helpers expected by LibraryManager
+  async upsertAnime(animeData) {
+    return this.addAnime(animeData);
+  }
+  
+  async insertOrReplace(animeData) {
+    return this.addAnime(animeData);
+  }
+  
+  async insertAnime(animeData) {
+    // Insert only, fail if path already exists
+    if (!this.db) throw new Error('Database not connected');
+
+    const existing = await this.getAnimeByPath(animeData.path);
+    if (existing) throw new Error('Anime already exists at path: ' + animeData.path);
+
+    return new Promise((resolve, reject) => {
+      const sql = `
+        INSERT INTO anime 
+        (title, path, cover, description, score, episodes, status, genres, year, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `;
+      const genres = Array.isArray(animeData.genres) 
+        ? animeData.genres.join(',') 
+        : animeData.genres;
+
+      this.db.run(sql, [
+        animeData.title,
+        animeData.path,
+        animeData.cover,
+        animeData.description,
+        animeData.score,
+        animeData.episodes,
+        animeData.status,
+        genres,
+        animeData.year
+      ], function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ id: this.lastID, ...animeData });
+        }
+      });
+    });
+  }
+
+  async updateAnime(animeData) {
+    if (!this.db) throw new Error('Database not connected');
+
+    const genres = Array.isArray(animeData.genres)
+      ? animeData.genres.join(',')
+      : animeData.genres;
+
+    const db = this.db; // capture DB reference for use inside callbacks
+
+    return new Promise((resolve, reject) => {
+      const sql = `
+        UPDATE anime SET
+          title = ?,
+          cover = ?,
+          description = ?,
+          score = ?,
+          episodes = ?,
+          status = ?,
+          genres = ?,
+          year = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE path = ?
+      `;
+      const params = [
+        animeData.title,
+        animeData.cover,
+        animeData.description,
+        animeData.score,
+        animeData.episodes,
+        animeData.status,
+        genres,
+        animeData.year,
+        animeData.path
+      ];
+
+      // Use a normal function callback so sqlite sets `this` to the Statement
+      db.run(sql, params, function(err) {
+        if (err) {
+          return reject(err);
+        }
+
+        // `this` is the Statement; check changes from the statement
+        if (this.changes === 0) {
+          // Nothing updated — try fallback by id if provided
+          if (animeData.id) {
+            const sqlById = `
+              UPDATE anime SET
+                title = ?, path = ?, cover = ?, description = ?, score = ?, episodes = ?, status = ?, genres = ?, year = ?, updated_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `;
+            const paramsById = [
+              animeData.title,
+              animeData.path,
+              animeData.cover,
+              animeData.description,
+              animeData.score,
+              animeData.episodes,
+              animeData.status,
+              genres,
+              animeData.year,
+              animeData.id
+            ];
+            db.run(sqlById, paramsById, function(err2) {
+              if (err2) return reject(err2);
+              // fetch updated row
+              db.get('SELECT * FROM anime WHERE id = ?', [animeData.id], (err3, row) => {
+                if (err3) return reject(err3);
+                resolve({
+                  ...row,
+                  genres: row && row.genres ? row.genres.split(',') : []
+                });
+              });
+            });
+          } else {
+            // No matching row
+            return resolve(null);
+          }
+        } else {
+          // Return updated row (fetch by path)
+          db.get('SELECT * FROM anime WHERE path = ?', [animeData.path], (err2, row) => {
+            if (err2) return reject(err2);
+            resolve({
+              ...row,
+              genres: row && row.genres ? row.genres.split(',') : []
+            });
+          });
+        }
+      });
+    });
+  }
+
+  // Compatibility alias used by LibraryManager
+  async findAnimeByPath(p) {
+    return this.getAnimeByPath(p);
+  }
+
   async getAllAnime() {
     // Check if database is still connected
     if (!this.db) {
       throw new Error('Database not connected');
     }
-
+    
     return new Promise((resolve, reject) => {
       const sql = 'SELECT * FROM anime ORDER BY title ASC';
       
