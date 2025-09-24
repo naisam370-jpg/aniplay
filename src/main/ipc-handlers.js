@@ -23,6 +23,30 @@ function setupIpcHandlers(libraryManager, database) {
     }
   });
 
+  // NEW: Refresh library (rescan existing + add new)
+  ipcMain.handle('library:refresh', async () => {
+    try {
+      console.log('🔄 Starting library refresh...');
+      const result = await libraryManager.refreshLibrary();
+      return result;
+    } catch (error) {
+      console.error('Library refresh error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // NEW: Clear database and rescan everything
+  ipcMain.handle('library:reset', async () => {
+    try {
+      console.log('🗑️ Resetting library database...');
+      const result = await libraryManager.resetLibrary();
+      return result;
+    } catch (error) {
+      console.error('Library reset error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('library:get-all', async () => {
     try {
       return await database.getAllAnime();

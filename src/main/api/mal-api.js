@@ -1,70 +1,133 @@
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs').promises;
 
 class MALApi {
   constructor() {
-    this.baseUrl = 'https://myanimelist.net';
-    this.userAgent = 'AniPlay/1.0.0';
+    this.pythonScript = path.join(__dirname, '../../python/mal_scraper.py');
   }
 
-  async httpGet(url) {
-    return new Promise((resolve, reject) => {
-      const urlObj = new URL(url);
-      const client = urlObj.protocol === 'https:' ? https : http;
+  async checkPythonDependencies() {
+    try {
+      // Check if Python is available
+      await this.runPythonCommand(['--version']);
       
-      const options = {
-        hostname: urlObj.hostname,
-        port: urlObj.port,
-        path: urlObj.pathname + urlObj.search,
-        method: 'GET',
-        headers: {
-          'User-Agent': this.userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      // Check if required packages are installed
+      const result = await this.runPythonCommand(['-c', 'import requests, bs4; print("Dependencies OK")']);
+      console.log('✅ Python dependencies available');
+      return true;
+    } catch (error) {
+      console.error('❌ Python dependencies missing:', error.message);
+      console.log('💡 To install: cd src/python && pip3 install -r requirements.txt');
+      return false;
+    }
+  }
+
+  async runPythonCommand(args) {
+    return new Promise((resolve, reject) => {
+      const python = spawn('python3', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      
+      let stdout = '';
+      let stderr = '';
+      
+      python.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      python.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Python exited with code ${code}: ${stderr}`));
         }
-      };
-
-      const req = client.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => data += chunk);
-        res.on('end', () => resolve({ data, status: res.statusCode }));
       });
-
-      req.on('error', reject);
-      req.setTimeout(10000, () => {
-        req.destroy();
-        reject(new Error('Request timeout'));
+      
+      python.on('error', (error) => {
+        reject(error);
       });
-      req.end();
     });
   }
 
   async searchAnime(query) {
     try {
-      console.log(`Searching for: ${query}`);
+      console.log(`🔍 Python MAL search for: ${query}`);
       
-      // For now, return mock data to get the app working
-      // We'll implement real MAL scraping later once the app is running
-      return {
-        title: query,
-        synopsis: 'Mock anime description for testing purposes.',
-        score: 8.5,
-        episodes: 12,
-        status: 'Finished Airing',
-        genres: ['Action', 'Adventure'],
-        year: 2023,
-        image_url: null
-      };
+      // Check dependencies first
+      const depsOK = await this.checkPythonDependencies();
+      if (!depsOK) {
+        return this.createFallbackData(query, 'Python dependencies missing');
+      }
+      
+      const result = await this.runPythonCommand([this.pythonScript, 'search', query]);
+      
+      // Parse JSON result
+      const animeData = JSON.parse(result.stdout);
+      
+      console.log(`✅ Python search result: ${animeData.title}`);
+      return animeData;
       
     } catch (error) {
-      console.error(`MAL API error for ${query}:`, error.message);
-      return null;
+      console.error(`❌ Python search error:`, error.message);
+      return this.createFallbackData(query, error.message);
     }
   }
 
   async downloadImage(imageUrl) {
-    // Return null for now - we'll implement this later
-    return null;
+    try {
+      console.log(`📥 Python image download: ${imageUrl}`);
+      
+      const python = spawn('python3', [this.pythonScript, 'download', imageUrl], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      
+      const chunks = [];
+      let stderr = '';
+      
+      python.stdout.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+      
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      return new Promise((resolve, reject) => {
+        python.on('close', (code) => {
+          if (code === 0 && chunks.length > 0) {
+            const buffer = Buffer.concat(chunks);
+            console.log(`✅ Downloaded ${buffer.length} bytes`);
+            resolve(buffer);
+          } else {
+            reject(new Error(`Download failed: ${stderr}`));
+          }
+        });
+        
+        python.on('error', (error) => {
+          reject(error);
+        });
+      });
+      
+    } catch (error) {
+      console.error(`❌ Python download error:`, error);
+      throw error;
+    }
+  }
+
+  createFallbackData(query, errorMsg = '') {
+    return {
+      title: query,
+      synopsis: `No MyAnimeList data available for "${query}".${errorMsg ? ' Error: ' + errorMsg : ''}`,
+      score: 0,
+      episodes: 0,
+      status: 'Unknown',
+      genres: [],
+      year: null,
+      image_url: null
+    };
   }
 }
 

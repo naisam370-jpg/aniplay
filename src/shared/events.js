@@ -11,6 +11,7 @@ module.exports = {
   LIBRARY_SEARCH: 'library:search',
   ANIME_SELECT: 'anime:select',
   ANIME_GET_EPISODES: 'anime:get-episodes',
+  LIBRARY_REFRESH: 'library:refresh',
   
   // UI events
   UI_FULLSCREEN: 'ui:fullscreen',
