@@ -11,6 +11,13 @@ class ModalManager {
         const settingsBtn = document.getElementById('settingsBtn');
         const closeSettings = document.getElementById('closeSettings');
         const settingsModal = document.getElementById('settingsModal');
+        const closeAnimeModal = document.getElementById('closeAnimeModal');
+
+        if (closeAnimeModal) {
+            closeAnimeModal.addEventListener('click', () => {
+                this.closeAnimeModal();
+            });
+        }
         
         if (settingsBtn) {
             settingsBtn.addEventListener('click', () => {
@@ -101,7 +108,13 @@ class ModalManager {
             console.error('Anime modal not found'); // Debug
         }
     }
-    
+    closeAnimeModal() {
+        console.log('closing anime modal'); // Debug
+        const modal = document.getElementById('animeModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
 }
 
 // Initialize modal manager when DOM is ready
