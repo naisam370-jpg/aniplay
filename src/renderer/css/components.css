@@ -82,7 +82,7 @@
 }
 
 .info-row {
-  display: flex;
+  display: wrap;
   align-items: center;
   gap: 12px;
 }

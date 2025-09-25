@@ -91,6 +91,17 @@ class ModalManager {
         // Add your settings save logic here
         this.closeSettingsModal();
     }
+    openAnimeModal() {
+        console.log('Opening anime modal'); // Debug
+        const modal = document.getElementById('animeModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            console.log('Anime modal should be visible now'); // Debug
+        } else {
+            console.error('Anime modal not found'); // Debug
+        }
+    }
+    
 }
 
 // Initialize modal manager when DOM is ready

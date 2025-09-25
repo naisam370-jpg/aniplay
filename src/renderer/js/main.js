@@ -9,16 +9,26 @@ class AniPlayApp {
         this.filteredLibrary = [];
         this.currentGridSize = 200;
         this.searchTimeout = null;
+
+        // keep ipc accessible and bind handlers
+        this.ipcRenderer = ipcRenderer;
+        this.resetLibrary = this.resetLibrary.bind(this);
+        this.refreshLibrary = this.refreshLibrary.bind(this);
+        this.scanLibrary = this.scanLibrary.bind(this);
+        this.searchLibrary = this.searchLibrary.bind(this);
+        this.openSettings = this.openSettings ? this.openSettings.bind(this) : this.openSettings;
+        this.handleKeyboard = this.handleKeyboard.bind(this);
+
         this.init();
     }
 
     async init() {
-        console.log('Initializing AniPlay...');
-        
+        // ensure UI event wiring happens early
+        try { this.setupEventListeners(); } catch (e) { console.error('setupEventListeners failed', e); }
+
         try {
             await ipcRenderer.invoke('app:init');
             this.isInitialized = true;
-            this.setupEventListeners();
             this.loadLibrary();
             console.log('AniPlay initialized successfully');
         } catch (error) {
@@ -27,61 +37,67 @@ class AniPlayApp {
     }
 
     setupEventListeners() {
-        // Refresh library button
-        document.getElementById('refreshLibrary').addEventListener('click', () => {
-            this.refreshLibrary();
+        if (this._eventsWired) return;
+        this._eventsWired = true;
+
+        console.log('AniPlay: wiring UI event listeners');
+
+        const getEl = id => document.getElementById(id);
+
+        // IDs in index.html
+        const scanBtn = getEl('scanLibrary');
+        if (scanBtn) scanBtn.addEventListener('click', () => { console.log('scanLibrary clicked'); this.scanLibrary(); });
+        else console.warn('scanLibrary element not found');
+
+        const scanEmptyBtn = getEl('scanLibraryEmpty');
+        if (scanEmptyBtn) scanEmptyBtn.addEventListener('click', () => { console.log('scanLibraryEmpty clicked'); this.scanLibrary(); });
+
+        const refreshBtn = getEl('refreshLibrary');
+        if (refreshBtn) refreshBtn.addEventListener('click', () => { console.log('refreshLibrary clicked'); this.refreshLibrary(); });
+        else console.warn('refreshLibrary element not found');
+
+        const resetBtn = getEl('resetLibrary');
+        if (resetBtn) resetBtn.addEventListener('click', () => { console.log('resetLibrary clicked'); this.resetLibrary(); });
+        else console.warn('resetLibrary element not found');
+
+        const settingsBtn = getEl('settingsBtn');
+        if (settingsBtn) settingsBtn.addEventListener('click', () => { console.log('settingsBtn clicked'); this.openSettings(); });
+        else console.warn('settingsBtn element not found');
+
+        const searchInput = getEl('searchInput');
+        const searchBtn = getEl('searchBtn');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.searchLibrary(e.target.value));
+            searchInput.addEventListener('keydown', (e) => this.handleKeyboard(e));
+        } else console.warn('searchInput not found');
+
+        if (searchBtn) searchBtn.addEventListener('click', () => {
+            const q = (searchInput && searchInput.value) ? searchInput.value : '';
+            console.log('searchBtn clicked, query=', q);
+            this.searchLibrary(q);
         });
 
-        // Reset library button  
-        document.getElementById('resetLibrary').addEventListener('click', () => {
-            this.resetLibrary();
+        // view controls
+        const gridSize = getEl('gridSize');
+        if (gridSize) gridSize.addEventListener('input', (e) => this.updateGridSize(e.target.value));
+
+        const gridView = getEl('gridView');
+        const listView = getEl('listView');
+        if (gridView) gridView.addEventListener('click', () => this.setView('grid'));
+        if (listView) listView.addEventListener('click', () => this.setView('list'));
+
+        // delegated clicks for dynamic elements (cards)
+        document.addEventListener('click', (ev) => {
+            const card = ev.target.closest('.anime-card');
+            if (!card) return;
+            const idx = Array.from(document.getElementById('animeGrid').children).indexOf(card);
+            if (idx >= 0) {
+                this.openAnimeDetails(this.filteredLibrary[idx]);
+            }
         });
 
-        // Scan library buttons
-        document.getElementById('scanLibrary').addEventListener('click', () => {
-            this.scanLibrary();
-        });
-        
-        const scanLibraryEmpty = document.getElementById('scanLibraryEmpty');
-        if (scanLibraryEmpty) {
-            scanLibraryEmpty.addEventListener('click', () => {
-                this.scanLibrary();
-            });
-        }
-
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(this.searchTimeout);
-            this.searchTimeout = setTimeout(() => {
-                this.searchLibrary(e.target.value);
-            }, 300);
-        });
-
-        // Grid size control
-        const gridSizeSlider = document.getElementById('gridSize');
-        gridSizeSlider.addEventListener('input', (e) => {
-            this.updateGridSize(parseInt(e.target.value));
-        });
-
-        // View toggle buttons
-        document.getElementById('gridView').addEventListener('click', () => {
-            this.setView('grid');
-        });
-        
-        document.getElementById('listView').addEventListener('click', () => {
-            this.setView('list');
-        });
-
-        // Settings - Fixed to wait for modal manager
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.openSettings();
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            this.handleKeyboard(e);
-        });
+        // global keyboard
+        document.addEventListener('keydown', (e) => this.handleKeyboard(e));
     }
 
     async loadLibrary() {
@@ -307,6 +323,64 @@ class AniPlayApp {
             window.modalManager.openAnimeModal(anime);
         } else {
             console.error('Modal manager not available yet');
+        }
+        const modalScore = document.getElementById('modalScore');
+        const modalEpisodes = document.getElementById('modalEpisodes');
+        const modalGenres = document.getElementById('modalGenres');
+        const modalDescription = document.getElementById('modalDescription');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalCover = document.getElementById('modalCover');
+        const modalYear = document.getElementById('modalYear');
+        const modalStatus = document.getElementById('modalStatus');
+
+        if (modalStatus) modalStatus.textContent = anime.status || 'Unknown Status';
+        if (modalYear) modalYear.textContent = anime.year || 'Unknown Year';
+        if (modalTitle) modalTitle.textContent = anime.title || 'Unknown Title';
+        if (modalScore) modalScore.textContent = anime.score ? anime.score.toFixed(1) : 'N/A';
+        if (modalEpisodes) modalEpisodes.textContent = (anime.episodes || 'Unknown') + ' episodes';
+        if (modalGenres) {
+            modalGenres.innerHTML = '';
+            if (Array.isArray(anime.genres)) {
+                anime.genres.forEach(genre => {
+                    const span = document.createElement('span');
+                    span.className = 'genre-tag';
+                    span.textContent = genre;
+                    modalGenres.appendChild(span);
+                });
+            }
+        }
+        if (modalDescription) modalDescription.textContent = anime.description || 'No description available.';
+        if (modalCover) {
+            const placeholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420" viewBox="0 0 300 420">
+                   <rect width="100%" height="100%" fill="#efefef"/>
+                   <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#888" font-family="sans-serif" font-size="18">No cover</text>
+                 </svg>`
+            );
+            let src = anime.cover || anime.image_url || '';
+            if (src && /^https?:\/\//i.test(src)) {
+                modalCover.src = src;
+            } else if (src && src.startsWith('data:')) {
+                modalCover.src = src;
+            } else if (src) {
+                // Local path: set placeholder and tag element for later resolution
+                modalCover.src = placeholder;
+                ipcRenderer.invoke('file:read-base64', src)
+                    .then(dataUrl => {
+                        if (dataUrl) {
+                            modalCover.src = dataUrl;
+                        } else {
+                            modalCover.src = placeholder;
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('Failed to load local cover via IPC:', src, err);
+                        modalCover.src = placeholder;
+                    });
+            } else {
+                modalCover.src = placeholder;
+            }
+            modalCover.onerror = () => { modalCover.src = placeholder; };
         }
     }
 
