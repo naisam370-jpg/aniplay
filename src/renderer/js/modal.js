@@ -100,6 +100,7 @@ class ModalManager {
             libraryPath: document.getElementById('libraryPath').value,
             themeSelect: document.getElementById('themeSelect').value,
         };
+        // Use ipcRenderer to send settings to main process for saving
         window.electronAPI.saveSettings(settings);
         console.log('Settings saved successfully');
     this.closeSettingsModal();

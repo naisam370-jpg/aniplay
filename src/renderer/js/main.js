@@ -35,6 +35,7 @@ class AniPlayApp {
             console.error('Failed to initialize AniPlay:', error);
         }
     }
+    
 
     setupEventListeners() {
         if (this._eventsWired) return;
