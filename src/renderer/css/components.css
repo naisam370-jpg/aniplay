@@ -136,7 +136,19 @@
   cursor: pointer;
   transition: background 0.2s;
 }
-
+.appIcon {
+  color: #000000;
+  padding: auto;
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  background-image: url('assets/icons/icon.png'); /* Ensure this path is correct */
+  margin-right: 10px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  vertical-align: middle;
+}
 .episode-item:hover {
   background: var(--surface-light);
 }
