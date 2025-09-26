@@ -9,7 +9,15 @@
     "build": "electron-packager . AniPlay --platform=win32,linux --arch=x64 --out=dist --overwrite --icon=assets/icon",
     "package-linux": "electron-packager . AniPlay --platform=linux --arch=x64 --out=dist --overwrite --icon=assets/icon"
   },
-  "keywords": ["anime", "player", "electron", "mpv", "myanimelist","anilist", "library"],
+  "keywords": [
+    "anime",
+    "player",
+    "electron",
+    "mpv",
+    "myanimelist",
+    "anilist",
+    "library"
+  ],
   "author": "Naisam",
   "license": "GPL-3.0-only",
   "devDependencies": {
@@ -17,6 +25,7 @@
   },
   "dependencies": {
     "cheerio": "1.0.0-rc.3",
+    "electron-packager": "^17.1.2",
     "fuse.js": "6.4.6",
     "sqlite3": "5.0.0"
   }
