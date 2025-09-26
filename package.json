@@ -1,15 +1,15 @@
 {
   "name": "aniplay",
-  "version": "1.0.0",
+  "version": "1.0.0-tr",
   "description": "Professional anime player with MyAnimeList integration and library management",
   "main": "src/main/index.js",
   "scripts": {
     "start": "electron . --disable-gpu --no-sandbox",
     "dev": "electron . --development",
-    "build": "echo 'Build disabled for Node 12 compatibility'",
-    "package-linux": "echo 'Package disabled for Node 12 compatibility'"
+    "build": "electron-packager . AniPlay --platform=win32,linux --arch=x64 --out=dist --overwrite --icon=assets/icon",
+    "package-linux": "electron-packager . AniPlay --platform=linux --arch=x64 --out=dist --overwrite --icon=assets/icon"
   },
-  "keywords": ["anime", "player", "electron", "mpv", "myanimelist", "library"],
+  "keywords": ["anime", "player", "electron", "mpv", "myanimelist","anilist", "library"],
   "author": "Naisam",
   "license": "GPL-3.0-only",
   "devDependencies": {
