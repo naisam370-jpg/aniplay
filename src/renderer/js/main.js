@@ -332,6 +332,7 @@ class AniPlayApp {
         const modalCover = document.getElementById('modalCover');
         const modalYear = document.getElementById('modalYear');
         const modalStatus = document.getElementById('modalStatus');
+        const episodesList = document.getElementById('episodeList');
 
         if (modalStatus) modalStatus.textContent = anime.status || 'Unknown Status';
         if (modalYear) modalYear.textContent = anime.year || 'Unknown Year';
@@ -382,6 +383,31 @@ class AniPlayApp {
             }
             modalCover.onerror = () => { modalCover.src = placeholder; };
         }
+        // check library folder and populate episodes list
+        // TODO fix loading issue
+        if (episodesList) {
+            episodesList.innerHTML = '<div class="loading-episodes">Loading episodes...</div>';
+            ipcRenderer.invoke('anime:get-episodes', anime.path)
+                .then(episodes => {
+                    if (Array.isArray(episodes) && episodes.length > 0) {
+                        episodesList.innerHTML = '';
+                        episodes.forEach(ep => {
+                            const epDiv = document.createElement('div');
+                            epDiv.className = 'episode-item';
+                            epDiv.textContent = `Episode ${ep.number}: ${ep.title || 'Untitled'} (${this.formatFileSize(ep.size)})`;
+                            episodesList.appendChild(epDiv);
+                        });
+                    } else {
+                        episodesList.innerHTML = '<div class="no-episodes">No episodes found in library.</div>';
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to get episodes via IPC:', err);
+                    episodesList.innerHTML = '<div class="no-episodes">Error loading episodes.</div>';
+                });
+            
+        }
+
     }
 
     updateGridSize(size) {

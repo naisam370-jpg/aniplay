@@ -95,8 +95,14 @@ class ModalManager {
 
     saveSettings() {
         console.log('Saving settings...'); // Debug
-        // Add your settings save logic here
-        this.closeSettingsModal();
+        // settings save logic using jsonfile at src/main/settings.js
+        const settings = {
+            libraryPath: document.getElementById('libraryPath').value,
+            themeSelect: document.getElementById('themeSelect').value,
+        };
+        window.electronAPI.saveSettings(settings);
+        console.log('Settings saved successfully');
+    this.closeSettingsModal();
     }
     openAnimeModal() {
         console.log('Opening anime modal'); // Debug
