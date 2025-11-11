@@ -152,6 +152,14 @@ class AniPlayWindow(QMainWindow):
         self.player_controls.update_info(anime_data)
         self.player_controls.show()
 
+    def closeEvent(self, event):
+        """Ensures background threads are terminated before the application exits."""
+        if self.metadata_fetcher and self.metadata_fetcher.isRunning():
+            print("Terminating metadata fetcher thread...")
+            self.metadata_fetcher.quit()
+            self.metadata_fetcher.wait() # Wait for the thread to finish
+        super().closeEvent(event)
+
 def main():
     """Main function to run the application."""
     app = QApplication(sys.argv)

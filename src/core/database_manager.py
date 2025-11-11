@@ -116,16 +116,13 @@ class DatabaseManager:
         cursor.execute("SELECT * FROM anime_episodes ORDER BY title, sub_series_title, season, episode")
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_cover_path_for_title(self, title, sub_series_title=None):
+    def get_cover_path_for_title(self, title):
         """
-        Retrieves the cover_path for a given anime title and optional sub_series_title from the database.
+        Retrieves the cover_path for a given anime title from the database.
         Returns the cover_path if found, otherwise None.
         """
         cursor = self.conn.cursor()
-        if sub_series_title:
-            cursor.execute("SELECT cover_path FROM anime_episodes WHERE title = ? AND sub_series_title = ? AND cover_path IS NOT NULL LIMIT 1", (title, sub_series_title))
-        else:
-            cursor.execute("SELECT cover_path FROM anime_episodes WHERE title = ? AND sub_series_title IS NULL AND cover_path IS NOT NULL LIMIT 1", (title,))
+        cursor.execute("SELECT cover_path FROM anime_episodes WHERE title = ? AND cover_path IS NOT NULL LIMIT 1", (title,))
         result = cursor.fetchone()
         return result['cover_path'] if result else None
 
