@@ -128,7 +128,8 @@ class AniPlayWindow(QMainWindow):
         Shows the AnimeDetailView for a selected main anime.
         """
         self.current_main_anime_data = anime_data # Store for back button context
-        self.anime_detail_view.update_view(anime_data)
+        main_anime_cover_path = self.db_manager.get_cover_path_for_title(anime_data["title"])
+        self.anime_detail_view.update_view(anime_data, main_anime_cover_path)
         self.stacked_widget.setCurrentWidget(self.anime_detail_view)
         # Ensure back button for episode_list_view goes to anime_detail_view
         self.episode_list_view.back_requested.disconnect()
