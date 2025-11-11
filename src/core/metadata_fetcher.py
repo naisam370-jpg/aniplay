@@ -1,7 +1,6 @@
 from PySide6.QtCore import QThread, Signal
 from src.core.anilist_api import AnilistAPI
 from src.core.database_manager import DatabaseManager
-from src.core.filename_parser import parse_filename # Import the parser
 import os
 from collections import defaultdict # Import defaultdict
 
@@ -22,17 +21,15 @@ class MetadataFetcher(QThread):
         """The main work of the thread."""
         db_manager = DatabaseManager(self.db_path)
         
-        # Map base anime titles to all their derived series titles
+        # Since series_titles are now cleaned, each title is its own base anime title for fetching
         base_anime_to_series_map = defaultdict(list)
         for series_title in self.series_titles:
-            # Extract base anime title (e.g., "My Anime" from "My Anime - Season 1")
-            base_anime_title = series_title.split(' - ')[0].strip()
-            base_anime_to_series_map[base_anime_title].append(series_title)
+            base_anime_to_series_map[series_title].append(series_title)
 
         fetched_base_anime_metadata = {} # Cache to avoid re-fetching for the same base anime
 
         print(f"Starting metadata fetch for {len(self.series_titles)} series titles...")
-        for base_anime_title, derived_series_titles in base_anime_to_series_map.items():
+        for base_anime_title, derived_series_titles in base_anime_to_series_map.items(): # base_anime_title is now the cleaned series_title
             if base_anime_title in fetched_base_anime_metadata:
                 metadata = fetched_base_anime_metadata[base_anime_title]
             else:

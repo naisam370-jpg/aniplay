@@ -6,6 +6,21 @@ from src.core.database_manager import DatabaseManager
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv"}
 
+def _clean_title_from_folder_name(folder_name):
+    """
+    Applies cleaning logic similar to filename_parser to a folder name
+    to derive a clean anime title for metadata fetching.
+    """
+    cleaned_name = folder_name.replace("_", " ").replace(".", " ").strip()
+    cleaned_name = re.sub(r"\[.*?\]", "", cleaned_name) # Remove bracketed tags
+    cleaned_name = re.sub(r"\(.*?\)", "", cleaned_name) # Remove parenthesized tags
+    cleaned_name = re.sub(r"\b(?:S\d+|Season\s*\d+)\b", "", cleaned_name, flags=re.IGNORECASE) # Remove season tags
+    cleaned_name = re.sub(r"\b\d{4}\b", "", cleaned_name) # Remove years
+    cleaned_name = re.sub(r"\s+", " ", cleaned_name).strip() # Normalize spaces
+    
+    # Capitalize first letter of each word for title
+    return ' '.join(word.capitalize() for word in cleaned_name.split()) if cleaned_name else folder_name
+
 def scan_library(path, db_manager: DatabaseManager):
     """
     Scans a given directory path for video files, parses their information,
@@ -20,7 +35,8 @@ def scan_library(path, db_manager: DatabaseManager):
     for entry in os.listdir(path):
         full_entry_path = os.path.join(path, entry)
         if os.path.isdir(full_entry_path):
-            main_anime_title = entry # The first-level folder name
+            folder_name = entry # The first-level folder name
+            cleaned_main_anime_title = _clean_title_from_folder_name(folder_name)
 
             # Collect all video files and subdirectories within this main anime folder
             all_files_in_main_anime = []
@@ -71,10 +87,10 @@ def scan_library(path, db_manager: DatabaseManager):
                                     season = 1 
                                     sub_series_title = subdir_name
 
-                                    db_manager.add_episode(full_path, main_anime_title, episode, season, sub_series_title)
+                                    db_manager.add_episode(full_path, cleaned_main_anime_title, episode, season, sub_series_title)
                                     scanned_video_data.append({
                                         "file_path": full_path,
-                                        "title": main_anime_title,
+                                        "title": cleaned_main_anime_title,
                                         "episode": episode,
                                         "season": season,
                                         "sub_series_title": sub_series_title
@@ -90,10 +106,10 @@ def scan_library(path, db_manager: DatabaseManager):
                         season = 0 # Season 0 for main series episodes
                         sub_series_title = None
 
-                        db_manager.add_episode(full_path, main_anime_title, episode, season, sub_series_title)
+                        db_manager.add_episode(full_path, cleaned_main_anime_title, episode, season, sub_series_title)
                         scanned_video_data.append({
                             "file_path": full_path,
-                            "title": main_anime_title,
+                            "title": cleaned_main_anime_title,
                             "episode": episode,
                             "season": season,
                             "sub_series_title": sub_series_title
@@ -107,10 +123,10 @@ def scan_library(path, db_manager: DatabaseManager):
                     season = 0 # Season 0 for main series episodes
                     sub_series_title = None
 
-                    db_manager.add_episode(full_path, main_anime_title, episode, season, sub_series_title)
+                    db_manager.add_episode(full_path, cleaned_main_anime_title, episode, season, sub_series_title)
                     scanned_video_data.append({
                         "file_path": full_path,
-                        "title": main_anime_title,
+                        "title": cleaned_main_anime_title,
                         "episode": episode,
                         "season": season,
                         "sub_series_title": sub_series_title
