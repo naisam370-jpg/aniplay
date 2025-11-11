@@ -90,6 +90,16 @@ class AnimeDetailView(QScrollArea):
         self.btn_back.setFixedWidth(150)
         self.main_layout.addWidget(self.btn_back, alignment=Qt.AlignTop | Qt.AlignLeft)
 
+        # Labels for description and genres
+        self.description_label = QLabel()
+        self.description_label.setWordWrap(True)
+        self.description_label.setFont(QFont("Arial", 10))
+        self.main_layout.addWidget(self.description_label)
+
+        self.genres_label = QLabel()
+        self.genres_label.setFont(QFont("Arial", 10, italic=True))
+        self.main_layout.addWidget(self.genres_label)
+
         self.content_grid_layout = QGridLayout()
         self.content_grid_layout.setContentsMargins(0, 0, 0, 0)
         self.content_grid_layout.setSpacing(10)
@@ -97,10 +107,15 @@ class AnimeDetailView(QScrollArea):
         self.main_layout.addLayout(self.content_grid_layout)
         self.main_layout.addStretch()
 
-    def update_view(self, anime_data, main_anime_cover_path):
+    def update_view(self, anime_data, main_anime_cover_path, description, genres):
         """
-        Clears and repopulates the view with ContentCards for direct episodes and sub-series.
+        Clears and repopulates the view with ContentCards for direct episodes and sub-series,
+        and displays the anime's description and genres.
         """
+        # Update description and genres
+        self.description_label.setText(description)
+        self.genres_label.setText(f"Genres: {genres}")
+
         # Clear existing items in the grid layout
         for i in reversed(range(self.content_grid_layout.count())):
             item = self.content_grid_layout.itemAt(i)
@@ -111,7 +126,6 @@ class AnimeDetailView(QScrollArea):
 
         direct_episodes = anime_data.get("episodes", [])
         sub_series_list = anime_data.get("sub_series", [])
-        main_anime_cover_path = anime_data.get("cover_path") # Get main anime cover path
 
         all_items_to_display = []
         # Add direct episodes

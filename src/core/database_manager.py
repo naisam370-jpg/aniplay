@@ -126,6 +126,23 @@ class DatabaseManager:
         result = cursor.fetchone()
         return result['cover_path'] if result else None
 
+    def get_anime_metadata(self, title):
+        """
+        Retrieves the description and genres for a given anime title from the database.
+        Returns a dictionary with 'description' and 'genres' (as a list), or None if not found.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT description, genres FROM anime_episodes WHERE title = ? AND (description IS NOT NULL OR genres IS NOT NULL) LIMIT 1", (title,))
+        result = cursor.fetchone()
+        if result:
+            genres_str = result['genres']
+            genres_list = [g.strip() for g in genres_str.split(',')] if genres_str else []
+            return {
+                "description": result['description'],
+                "genres": genres_list
+            }
+        return None
+
     def search_episodes(self, query):
         """
         Searches for episodes with titles matching the query.

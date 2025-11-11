@@ -129,7 +129,10 @@ class AniPlayWindow(QMainWindow):
         """
         self.current_main_anime_data = anime_data # Store for back button context
         main_anime_cover_path = self.db_manager.get_cover_path_for_title(anime_data["title"])
-        self.anime_detail_view.update_view(anime_data, main_anime_cover_path)
+        anime_metadata = self.db_manager.get_anime_metadata(anime_data["title"])
+        description = anime_metadata["description"] if anime_metadata else "No description available."
+        genres = ", ".join(anime_metadata["genres"]) if anime_metadata and anime_metadata["genres"] else "N/A"
+        self.anime_detail_view.update_view(anime_data, main_anime_cover_path, description, genres)
         self.stacked_widget.setCurrentWidget(self.anime_detail_view)
         # Ensure back button for episode_list_view goes to anime_detail_view
         self.episode_list_view.back_requested.disconnect()
