@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 
 class AnilistAPI:
     def __init__(self):
@@ -36,6 +37,7 @@ class AnilistAPI:
             response = requests.post(self.api_url, json={'query': query, 'variables': variables})
             response.raise_for_status() # Raise an exception for bad status codes
             data = response.json()
+            time.sleep(1) # Add a delay to respect rate limits
             return data.get("data", {}).get("Media")
         except requests.exceptions.RequestException as e:
             print(f"Error fetching metadata for '{anime_title}': {e}")
@@ -59,6 +61,7 @@ class AnilistAPI:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             print(f"Successfully downloaded cover to {save_path}")
+            time.sleep(1) # Add a delay to respect rate limits
             return True
         except requests.exceptions.RequestException as e:
             print(f"Error downloading cover from '{image_url}': {e}")

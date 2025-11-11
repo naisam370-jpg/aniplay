@@ -1,6 +1,7 @@
 from PySide6.QtCore import QThread, Signal
 from src.core.anilist_api import AnilistAPI
 from src.core.database_manager import DatabaseManager
+from src.core.filename_parser import parse_filename # Import the parser
 import os
 
 class MetadataFetcher(QThread):
@@ -23,6 +24,10 @@ class MetadataFetcher(QThread):
         
         print(f"Starting metadata fetch for {len(self.anime_titles)} titles...")
         for title in self.anime_titles:
+            # Parse the filename to get a cleaner title for API search
+            parsed_info = parse_filename(title)
+            clean_title = parsed_info.get("title") if parsed_info.get("title") else title
+
             # First, check if a cover path already exists in the database for this title
             existing_cover_in_db = db_manager.get_cover_path_for_title(title)
             if existing_cover_in_db:
@@ -37,8 +42,8 @@ class MetadataFetcher(QThread):
                 self.metadata_updated.emit(title)
                 continue
 
-            print(f"Fetching metadata for '{title}'...")
-            metadata = self.anilist_api.fetch_anime_metadata(title)
+            print(f"Fetching metadata for '{clean_title}' (original: '{title}')...")
+            metadata = self.anilist_api.fetch_anime_metadata(clean_title)
 
             if metadata and metadata.get('coverImage', {}).get('extraLarge'):
                 cover_url = metadata['coverImage']['extraLarge']

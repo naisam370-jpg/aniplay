@@ -15,21 +15,30 @@ def scan_library(path, db_manager: DatabaseManager):
         print(f"Error: Path '{path}' is not a valid directory.")
         return scanned_video_data
 
-    for root, _, files in os.walk(path):
-        for file in files:
-            if os.path.splitext(file)[1].lower() in VIDEO_EXTENSIONS:
-                full_path = os.path.join(root, file)
-                parsed_info = parse_filename(file)
-                
-                title = parsed_info.get("title", os.path.splitext(file)[0])
-                episode = parsed_info.get("episode")
+    # Iterate through first-level directories in the given path
+    for entry in os.listdir(path):
+        full_entry_path = os.path.join(path, entry)
+        if os.path.isdir(full_entry_path):
+            # This is a main anime folder
+            anime_title = entry # The folder name is the anime title
 
-                db_manager.add_episode(full_path, title, episode)
-                scanned_video_data.append({
-                    "file_path": full_path,
-                    "title": title,
-                    "episode": episode
-                })
+            # Now, walk through this anime's folder to find all video files
+            for root, _, files in os.walk(full_entry_path):
+                for file in files:
+                    if os.path.splitext(file)[1].lower() in VIDEO_EXTENSIONS:
+                        full_path = os.path.join(root, file)
+                        parsed_info = parse_filename(file)
+                        
+                        # Use the anime_title derived from the folder name,
+                        # but still try to get episode number from the filename
+                        episode = parsed_info.get("episode")
+
+                        db_manager.add_episode(full_path, anime_title, episode)
+                        scanned_video_data.append({
+                            "file_path": full_path,
+                            "title": anime_title,
+                            "episode": episode
+                        })
     
     return scanned_video_data
 
