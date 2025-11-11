@@ -1,0 +1,147 @@
+import sys
+from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout, QStackedWidget
+
+from src.widgets.player_control_widget import PlayerControlWidget
+from src.widgets.episode_list_widget import EpisodeListWidget
+from src.widgets.sidebar_widget import SidebarWidget
+from src.widgets.anime_grid_widget import AnimeGridWidget
+from src.widgets.search_widget import SearchWidget
+from src.widgets.settings_widget import SettingsWidget
+from src.core.database_manager import DatabaseManager
+from src.core.library_scanner import load_library_from_db, group_episodes_by_anime, scan_library
+from src.core.mpv_player import MpvPlayer
+from src.core.metadata_fetcher import MetadataFetcher
+from src.core.settings_manager import SettingsManager
+
+class AniPlayWindow(QMainWindow):
+    def __init__(self, db_manager, mpv_player, settings_manager):
+        super().__init__()
+        self.db_manager = db_manager
+        self.mpv_player = mpv_player
+        self.settings_manager = settings_manager
+        self.metadata_fetcher = None
+        self.setWindowTitle("AniPlay")
+        self.setGeometry(100, 100, 1200, 700)
+
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        content_layout = QHBoxLayout()
+        content_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.sidebar = SidebarWidget()
+        content_layout.addWidget(self.sidebar)
+
+        self.stacked_widget = QStackedWidget()
+        content_layout.addWidget(self.stacked_widget)
+
+        # --- Create Views ---
+        self.anime_grid = AnimeGridWidget()
+        self.search_view = SearchWidget(self.db_manager, self.mpv_player)
+        self.settings_view = SettingsWidget(self.db_manager, self.settings_manager)
+        self.episode_list_view = EpisodeListWidget(self.db_manager, self.mpv_player)
+
+        # --- Add Views to Stacked Widget ---
+        self.stacked_widget.addWidget(self.anime_grid)
+        self.stacked_widget.addWidget(self.episode_list_view)
+        self.stacked_widget.addWidget(self.search_view)
+        self.stacked_widget.addWidget(self.settings_view)
+
+        main_layout.addLayout(content_layout)
+
+        self.player_controls = PlayerControlWidget(self.mpv_player)
+        self.player_controls.hide()
+        main_layout.addWidget(self.player_controls)
+
+        central_widget = QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+
+        # --- Connect Signals ---
+        self.sidebar.btn_library.clicked.connect(self.show_anime_grid)
+        self.sidebar.btn_search.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.search_view))
+        self.sidebar.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_view))
+
+        self.settings_view.scan_requested.connect(self.trigger_scan)
+        self.anime_grid.series_selected.connect(self.show_episode_list)
+        self.episode_list_view.back_requested.connect(self.show_anime_grid)
+        self.episode_list_view.video_playing.connect(self.on_video_playing)
+        self.search_view.video_playing.connect(self.on_video_playing)
+
+        # --- Initial Load ---
+        self.load_and_display_library()
+        
+        if self.settings_manager.get("auto_scan", False):
+            self.trigger_scan()
+
+    def trigger_scan(self):
+        library_path = self.settings_manager.get("library_path")
+        if library_path:
+            print(f"Starting scan of '{library_path}'...")
+            video_files = scan_library(library_path, self.db_manager)
+            self.on_scan_completed(video_files)
+        else:
+            print("Scan triggered, but no library path is set.")
+
+    def load_and_display_library(self):
+        all_episodes = load_library_from_db(self.db_manager)
+        grouped_anime = group_episodes_by_anime(all_episodes)
+        self.anime_grid.update_grid(grouped_anime)
+
+    def on_scan_completed(self, video_files):
+        self.load_and_display_library()
+        self.search_view.refresh_cache()
+        
+        unique_titles = {item['title'] for item in video_files}
+        
+        if unique_titles:
+            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path, list(unique_titles))
+            self.metadata_fetcher.metadata_updated.connect(self.on_metadata_updated)
+            self.metadata_fetcher.start()
+
+    def on_metadata_updated(self, title):
+        print(f"UI: Metadata updated for {title}, reloading library.")
+        self.load_and_display_library()
+
+    def show_anime_grid(self):
+        self.load_and_display_library()
+        self.stacked_widget.setCurrentWidget(self.anime_grid)
+
+    def show_episode_list(self, anime_series_data):
+        self.episode_list_view.populate_episodes(anime_series_data)
+        self.stacked_widget.setCurrentWidget(self.episode_list_view)
+
+    def on_video_playing(self, anime_data):
+        """Shows the player controls when a video starts playing."""
+        self.player_controls.update_info(anime_data)
+        self.player_controls.show()
+
+def main():
+    """Main function to run the application."""
+    app = QApplication(sys.argv)
+    
+    db_path = "aniplay.db"
+    settings_path = "settings.json"
+    
+    db_manager = DatabaseManager(db_path)
+    settings_manager = SettingsManager(settings_path)
+    
+    mpv_player = MpvPlayer()
+    
+    main_win = AniPlayWindow(db_manager, mpv_player, settings_manager)
+    
+    # Load and apply stylesheet
+    try:
+        with open("src/styles/dark_theme.qss", "r") as f:
+            main_win.setStyleSheet(f.read())
+    except FileNotFoundError:
+        print("Stylesheet not found, using default style.")
+
+    main_win.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
+
+
