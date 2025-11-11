@@ -143,6 +143,7 @@ class AniPlayWindow(QMainWindow):
             self.episode_list_view.populate_episodes(selected_data)
             self.stacked_widget.setCurrentWidget(self.episode_list_view)
         elif "file_path" in selected_data: # It's a direct episode from AnimeDetailView
+            self.mpv_player.play_video(selected_data["file_path"]) # Initiate playback
             self.on_video_playing(selected_data)
 
 
