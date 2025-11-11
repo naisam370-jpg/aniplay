@@ -20,10 +20,19 @@ class AnimeCard(QWidget):
         self.cover_label.setFixedSize(150, 200)
         self.cover_label.setStyleSheet("border: 1px solid #555; background-color: #3a3a3a;")
         
-        # Attempt to load cover image from the path stored in the database
-        # We take the cover_path from the first episode of the series
-        cover_path = anime_series_data.get("episodes", [{}])[0].get("cover_path")
+        # Attempt to load cover image from the first available episode in any season
+        cover_path = None
+        total_episodes = 0
+        watched_count = 0
 
+        for season_data in anime_series_data.get("seasons", []):
+            for episode in season_data.get("episodes", []):
+                total_episodes += 1
+                if episode.get('is_watched'):
+                    watched_count += 1
+                if not cover_path and episode.get("cover_path"):
+                    cover_path = episode.get("cover_path")
+                    
         pixmap = QPixmap()
         if cover_path and os.path.exists(cover_path):
             pixmap.load(cover_path)
@@ -34,9 +43,6 @@ class AnimeCard(QWidget):
             self.cover_label.setText("No Cover")
 
         title = anime_series_data.get("title", "Unknown Title")
-        episodes = anime_series_data.get("episodes", [])
-        total_episodes = len(episodes)
-        watched_count = sum(1 for ep in episodes if ep.get('is_watched'))
         
         display_text = f"{title}\n({watched_count}/{total_episodes} Watched)"
 

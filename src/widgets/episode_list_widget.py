@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QScrollArea, QHBoxLayout
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QFont
 from src.core.database_manager import DatabaseManager
 import os
 
@@ -14,11 +14,20 @@ class EpisodeRowWidget(QWidget):
         self.episode_data = episode_data
         
         layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0) # Adjust margins for episode rows
         
         title = episode_data.get('title', 'Unknown Title')
         episode_num = episode_data.get('episode')
-        display_text = f"Episode {episode_num}" if episode_num is not None else title
-        
+        season_num = episode_data.get('season')
+
+        display_text = ""
+        if season_num is not None and episode_num is not None:
+            display_text = f"S{season_num:02d}E{episode_num:02d}"
+        elif episode_num is not None:
+            display_text = f"Episode {episode_num}"
+        else:
+            display_text = title # Fallback to title if no episode info
+
         self.play_button = QPushButton(display_text)
         self.play_button.setStyleSheet("text-align: left; padding: 8px;")
         self.play_button.clicked.connect(lambda: self.play_requested.emit(self.episode_data))
@@ -104,14 +113,27 @@ class EpisodeListWidget(QWidget):
         title = anime_series_data.get('title', 'Unknown Title')
         self.title_label.setText(title)
 
-        first_episode = anime_series_data.get("episodes", [{}])[0]
-        description = first_episode.get("description", "No description available.")
-        genres = first_episode.get("genres", "N/A")
+        # Clear existing items
+        while self.episodes_layout.count():
+            item = self.episodes_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        # Get metadata from the first episode of the first season for display
+        first_episode_in_first_season = None
+        if anime_series_data.get("seasons"):
+            first_season_episodes = anime_series_data["seasons"][0].get("episodes")
+            if first_season_episodes:
+                first_episode_in_first_season = first_season_episodes[0]
+
+        description = first_episode_in_first_season.get("description", "No description available.") if first_episode_in_first_season else "No description available."
+        genres = first_episode_in_first_season.get("genres", "N/A") if first_episode_in_first_season else "N/A"
 
         self.description_label.setText(description.replace('<br>', '') if description else "No description available.")
         self.genres_label.setText(f"Genres: {genres}")
 
-        cover_path = first_episode.get("cover_path")
+        cover_path = first_episode_in_first_season.get("cover_path") if first_episode_in_first_season else None
 
         pixmap = QPixmap()
         if cover_path and os.path.exists(cover_path):
@@ -122,19 +144,22 @@ class EpisodeListWidget(QWidget):
         else:
             self.cover_label.setText("No Cover")
 
-        while self.episodes_layout.count():
-            item = self.episodes_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        # Populate episodes grouped by season
+        for season_data in anime_series_data.get('seasons', []):
+            season_num = season_data.get('season_num')
+            episodes_in_season = season_data.get('episodes', [])
 
-        sorted_episodes = sorted(anime_series_data.get('episodes', []), key=lambda e: e.get('episode', 0) or 0)
+            if season_num is not None:
+                season_label = QLabel(f"Season {season_num}")
+                season_label.setFont(QFont("Arial", 12, QFont.Bold))
+                season_label.setStyleSheet("margin-top: 10px; margin-bottom: 5px;")
+                self.episodes_layout.addWidget(season_label)
 
-        for episode in sorted_episodes:
-            row_widget = EpisodeRowWidget(episode)
-            row_widget.play_requested.connect(self.on_episode_clicked)
-            row_widget.watched_status_changed.connect(self.on_watched_status_changed)
-            self.episodes_layout.addWidget(row_widget)
+            for episode in episodes_in_season:
+                row_widget = EpisodeRowWidget(episode)
+                row_widget.play_requested.connect(self.on_episode_clicked)
+                row_widget.watched_status_changed.connect(self.on_watched_status_changed)
+                self.episodes_layout.addWidget(row_widget)
 
     def on_episode_clicked(self, episode_data):
         file_path = episode_data.get("file_path")
@@ -155,6 +180,7 @@ class EpisodeListWidget(QWidget):
             # Find the widget and update its style
             for i in range(self.episodes_layout.count()):
                 widget = self.episodes_layout.itemAt(i).widget()
-                if widget.episode_data['file_path'] == file_path:
+                # Check if the item is an EpisodeRowWidget before accessing its episode_data
+                if isinstance(widget, EpisodeRowWidget) and widget.episode_data['file_path'] == file_path:
                     widget.update_style()
                     break

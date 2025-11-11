@@ -22,7 +22,7 @@ class DatabaseManager:
             self.conn = None
 
     def create_table(self):
-        """Creates the 'anime_episodes' table if it doesn't exist."""
+        """Creates the 'anime_episodes' table if it doesn't exist and adds 'season' column if missing."""
         cursor = self.conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS anime_episodes (
@@ -31,30 +31,37 @@ class DatabaseManager:
                 title TEXT NOT NULL,
                 episode INTEGER,
                 cover_path TEXT,
-                description TEXT, -- Added column for description
-                genres TEXT,      -- Added column for genres
+                description TEXT,
+                genres TEXT,
                 last_watched TEXT,
                 is_watched INTEGER DEFAULT 0
             )
         """)
+        
+        # Check if 'season' column exists, if not, add it
+        cursor.execute("PRAGMA table_info(anime_episodes)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'season' not in columns:
+            cursor.execute("ALTER TABLE anime_episodes ADD COLUMN season INTEGER DEFAULT 1")
+        
         self.conn.commit()
 
-    def add_episode(self, file_path, title, episode=None, cover_path=None):
+    def add_episode(self, file_path, title, episode=None, season=1, cover_path=None):
         """
         Adds a new anime episode to the database.
         If an episode with the same file_path already exists, it updates its data.
         """
         cursor = self.conn.cursor()
         try:
-            # We don't insert description/genres here, they are updated per-series
             cursor.execute("""
-                INSERT INTO anime_episodes (file_path, title, episode, cover_path)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO anime_episodes (file_path, title, episode, season, cover_path)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(file_path) DO UPDATE SET
                     title = EXCLUDED.title,
                     episode = EXCLUDED.episode,
+                    season = EXCLUDED.season,
                     cover_path = COALESCE(EXCLUDED.cover_path, cover_path)
-            """, (file_path, title, episode, cover_path))
+            """, (file_path, title, episode, season, cover_path))
             self.conn.commit()
             return True
         except sqlite3.Error as e:
@@ -79,22 +86,29 @@ class DatabaseManager:
             print(f"Error updating metadata for '{title}': {e}")
             return False
 
-    def clear_all_cover_paths(self):
-        """Sets the cover_path to NULL for all episodes in the database."""
+    def clear_all_cover_paths(self, title=None):
+        """
+        Sets the cover_path to NULL for all episodes in the database.
+        If a title is provided, clears covers only for that series.
+        """
         cursor = self.conn.cursor()
         try:
-            cursor.execute("UPDATE anime_episodes SET cover_path = NULL")
+            if title:
+                cursor.execute("UPDATE anime_episodes SET cover_path = NULL WHERE title = ?", (title,))
+                print(f"Cleared cover paths for '{title}' in the database.")
+            else:
+                cursor.execute("UPDATE anime_episodes SET cover_path = NULL")
+                print("Cleared all cover paths in the database.")
             self.conn.commit()
-            print("Cleared all cover paths in the database.")
             return True
         except sqlite3.Error as e:
-            print(f"Error clearing all cover paths: {e}")
+            print(f"Error clearing cover paths: {e}")
             return False
 
     def get_all_episodes(self):
         """Retrieves all anime episodes from the database."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM anime_episodes ORDER BY title, episode")
+        cursor.execute("SELECT * FROM anime_episodes ORDER BY title, season, episode")
         return [dict(row) for row in cursor.fetchall()]
 
     def get_cover_path_for_title(self, title):
@@ -114,7 +128,7 @@ class DatabaseManager:
         """
         cursor = self.conn.cursor()
         # Use a LIKE query with wildcards to search for the query string within the title
-        cursor.execute("SELECT * FROM anime_episodes WHERE title LIKE ? ORDER BY title, episode", (f'%{query}%',))
+        cursor.execute("SELECT * FROM anime_episodes WHERE title LIKE ? ORDER BY title, season, episode", (f'%{query}%',))
         return [dict(row) for row in cursor.fetchall()]
 
     def get_episode_by_path(self, file_path):
@@ -151,9 +165,10 @@ if __name__ == '__main__':
     db_manager = DatabaseManager("test_aniplay.db")
 
     # Add some episodes
-    db_manager.add_episode("/path/to/anime/Series A - 01.mkv", "Series A", 1)
-    db_manager.add_episode("/path/to/anime/Series A - 02.mkv", "Series A", 2)
-    db_manager.add_episode("/path/to/anime/Series B - 01.mp4", "Series B", 1)
+    db_manager.add_episode("/path/to/anime/Series A - S01E01.mkv", "Series A", 1, 1)
+    db_manager.add_episode("/path/to/anime/Series A - S01E02.mkv", "Series A", 2, 1)
+    db_manager.add_episode("/path/to/anime/Series A - S02E01.mkv", "Series A", 1, 2)
+    db_manager.add_episode("/path/to/anime/Series B - 01.mp4", "Series B", 1) # Default season 1
     db_manager.add_episode("/path/to/anime/Series C - Movie.avi", "Series C")
 
     print("All episodes after adding:")
@@ -161,8 +176,8 @@ if __name__ == '__main__':
         print(episode)
 
     # Update an episode
-    db_manager.add_episode("/path/to/anime/Series A - 01.mkv", "Series A Updated", 1)
-    print("\nAll episodes after updating Series A - 01:")
+    db_manager.add_episode("/path/to/anime/Series A - S01E01.mkv", "Series A Updated", 1, 1)
+    print("\nAll episodes after updating Series A - S01E01:")
     for episode in db_manager.get_all_episodes():
         print(episode)
 
@@ -171,9 +186,9 @@ if __name__ == '__main__':
     print(db_manager.get_episode_by_path("/path/to/anime/Series B - 01.mp4"))
 
     # Update watched status
-    db_manager.update_watched_status("/path/to/anime/Series A - 01.mkv", True)
-    print("\nSeries A - 01 watched status:")
-    print(db_manager.get_episode_by_path("/path/to/anime/Series A - 01.mkv"))
+    db_manager.update_watched_status("/path/to/anime/Series A - S01E01.mkv", True)
+    print("\nSeries A - S01E01 watched status:")
+    print(db_manager.get_episode_by_path("/path/to/anime/Series A - S01E01.mkv"))
 
     # Delete an episode
     db_manager.delete_episode("/path/to/anime/Series C - Movie.avi")
