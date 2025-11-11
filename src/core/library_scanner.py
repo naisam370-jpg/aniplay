@@ -17,7 +17,7 @@ def _get_season_from_path(relative_path):
         match = re.search(r"(?:season|s)(\d+)", part, re.IGNORECASE)
         if match:
             return int(match.group(1))
-    return 1 # Default to season 1 if no season found in path
+    return None # Return None if no season found in path, so filename can take precedence or default to 1
 
 def scan_library(path, db_manager: DatabaseManager):
     """
@@ -38,28 +38,31 @@ def scan_library(path, db_manager: DatabaseManager):
 
             # Now, walk through this anime's folder to find all video files
             for root, _, files in os.walk(full_entry_path):
+                # Determine season from the current root path relative to the anime's main folder
+                current_relative_root = os.path.relpath(root, full_entry_path)
+                path_season = _get_season_from_path(current_relative_root)
+
                 for file in files:
                     if os.path.splitext(file)[1].lower() in VIDEO_EXTENSIONS:
                         full_path = os.path.join(root, file)
                         
-                        # Get relative path from the anime's root folder
-                        relative_file_path = os.path.relpath(full_path, full_entry_path)
-
                         parsed_info = parse_filename(file)
                         
-                        # Determine season: prioritize from filename, then from path
-                        season = parsed_info.get("season")
-                        if season is None: # If not found in filename, try to get from path
-                            season = _get_season_from_path(relative_file_path)
+                        # Determine final season: prioritize path_season, then filename season, then default to 1
+                        final_season = 1
+                        if path_season is not None:
+                            final_season = path_season
+                        elif parsed_info.get("season") is not None:
+                            final_season = parsed_info.get("season")
                         
                         episode = parsed_info.get("episode")
 
-                        db_manager.add_episode(full_path, anime_title, episode, season)
+                        db_manager.add_episode(full_path, anime_title, episode, final_season)
                         scanned_video_data.append({
                             "file_path": full_path,
                             "title": anime_title,
                             "episode": episode,
-                            "season": season
+                            "season": final_season
                         })
     
     return scanned_video_data
