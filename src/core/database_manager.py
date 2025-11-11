@@ -22,7 +22,7 @@ class DatabaseManager:
             self.conn = None
 
     def create_table(self):
-        """Creates the 'anime_episodes' table if it doesn't exist and adds 'season' column if missing."""
+        """Creates the 'anime_episodes' table if it doesn't exist and adds missing columns."""
         cursor = self.conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS anime_episodes (
@@ -34,19 +34,23 @@ class DatabaseManager:
                 description TEXT,
                 genres TEXT,
                 last_watched TEXT,
-                is_watched INTEGER DEFAULT 0
+                is_watched INTEGER DEFAULT 0,
+                season INTEGER DEFAULT 1,
+                sub_series_title TEXT -- New column for sub-series title
             )
         """)
         
-        # Check if 'season' column exists, if not, add it
+        # Check and add 'season' column if missing (for backward compatibility)
         cursor.execute("PRAGMA table_info(anime_episodes)")
         columns = [col[1] for col in cursor.fetchall()]
         if 'season' not in columns:
             cursor.execute("ALTER TABLE anime_episodes ADD COLUMN season INTEGER DEFAULT 1")
+        if 'sub_series_title' not in columns:
+            cursor.execute("ALTER TABLE anime_episodes ADD COLUMN sub_series_title TEXT")
         
         self.conn.commit()
 
-    def add_episode(self, file_path, title, episode=None, season=1, cover_path=None):
+    def add_episode(self, file_path, title, episode=None, season=1, sub_series_title=None, cover_path=None):
         """
         Adds a new anime episode to the database.
         If an episode with the same file_path already exists, it updates its data.
@@ -54,14 +58,15 @@ class DatabaseManager:
         cursor = self.conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO anime_episodes (file_path, title, episode, season, cover_path)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO anime_episodes (file_path, title, episode, season, sub_series_title, cover_path)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(file_path) DO UPDATE SET
                     title = EXCLUDED.title,
                     episode = EXCLUDED.episode,
                     season = EXCLUDED.season,
+                    sub_series_title = EXCLUDED.sub_series_title,
                     cover_path = COALESCE(EXCLUDED.cover_path, cover_path)
-            """, (file_path, title, episode, season, cover_path))
+            """, (file_path, title, episode, season, sub_series_title, cover_path))
             self.conn.commit()
             return True
         except sqlite3.Error as e:
@@ -108,16 +113,19 @@ class DatabaseManager:
     def get_all_episodes(self):
         """Retrieves all anime episodes from the database."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM anime_episodes ORDER BY title, season, episode")
+        cursor.execute("SELECT * FROM anime_episodes ORDER BY title, sub_series_title, season, episode")
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_cover_path_for_title(self, title):
+    def get_cover_path_for_title(self, title, sub_series_title=None):
         """
-        Retrieves the cover_path for a given anime title from the database.
+        Retrieves the cover_path for a given anime title and optional sub_series_title from the database.
         Returns the cover_path if found, otherwise None.
         """
         cursor = self.conn.cursor()
-        cursor.execute("SELECT cover_path FROM anime_episodes WHERE title = ? AND cover_path IS NOT NULL LIMIT 1", (title,))
+        if sub_series_title:
+            cursor.execute("SELECT cover_path FROM anime_episodes WHERE title = ? AND sub_series_title = ? AND cover_path IS NOT NULL LIMIT 1", (title, sub_series_title))
+        else:
+            cursor.execute("SELECT cover_path FROM anime_episodes WHERE title = ? AND sub_series_title IS NULL AND cover_path IS NOT NULL LIMIT 1", (title,))
         result = cursor.fetchone()
         return result['cover_path'] if result else None
 

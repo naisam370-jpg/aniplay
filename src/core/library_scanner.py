@@ -6,64 +6,115 @@ from src.core.database_manager import DatabaseManager
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv"}
 
-def _get_season_from_path(relative_path):
-    """
-    Attempts to extract a season number from a given relative path.
-    Looks for patterns like 'Season X', 'SX', 'SXX'.
-    """
-    path_parts = relative_path.split(os.sep)
-    for part in path_parts:
-        # Pattern for "Season X" or "SXX"
-        match = re.search(r"(?:season|s)(\d+)", part, re.IGNORECASE)
-        if match:
-            return int(match.group(1))
-    return None # Return None if no season found in path, so filename can take precedence or default to 1
-
 def scan_library(path, db_manager: DatabaseManager):
     """
     Scans a given directory path for video files, parses their information,
-    and stores them in the database.
+    and stores them in the database, organizing them hierarchically.
     """
     scanned_video_data = []
     if not os.path.isdir(path):
         print(f"Error: Path '{path}' is not a valid directory.")
         return scanned_video_data
 
-    # Iterate through first-level directories in the given path
+    # Iterate through first-level directories in the given path (main anime folders)
     for entry in os.listdir(path):
         full_entry_path = os.path.join(path, entry)
         if os.path.isdir(full_entry_path):
-            # This is a main anime folder
-            anime_title = entry # The folder name is the anime title
+            main_anime_title = entry # The first-level folder name
 
-            # Now, walk through this anime's folder to find all video files
-            for root, _, files in os.walk(full_entry_path):
-                # Determine season from the current root path relative to the anime's main folder
-                current_relative_root = os.path.relpath(root, full_entry_path)
-                path_season = _get_season_from_path(current_relative_root)
+            # Collect all video files and subdirectories within this main anime folder
+            all_files_in_main_anime = []
+            all_subdirs_in_main_anime = []
 
+            for root, dirs, files in os.walk(full_entry_path):
+                # Get relative path from the main anime folder
+                relative_root = os.path.relpath(root, full_entry_path)
+                
                 for file in files:
                     if os.path.splitext(file)[1].lower() in VIDEO_EXTENSIONS:
                         full_path = os.path.join(root, file)
-                        
-                        parsed_info = parse_filename(file)
-                        
-                        # Determine final season: prioritize path_season, then filename season, then default to 1
-                        final_season = 1
-                        if path_season is not None:
-                            final_season = path_season
-                        elif parsed_info.get("season") is not None:
-                            final_season = parsed_info.get("season")
-                        
-                        episode = parsed_info.get("episode")
+                        all_files_in_main_anime.append((full_path, relative_root, file))
+                
+                # Collect immediate subdirectories for processing as sub-series
+                if root == full_entry_path: # Only consider direct subdirectories
+                    for d in dirs:
+                        all_subdirs_in_main_anime.append(d)
 
-                        db_manager.add_episode(full_path, anime_title, episode, final_season)
+            # Determine if there are sub-series (folders containing video files)
+            # or if all videos are directly under the main folder
+            has_sub_series = False
+            for subdir_name in all_subdirs_in_main_anime:
+                subdir_path = os.path.join(full_entry_path, subdir_name)
+                # Check if this subdirectory actually contains video files
+                for r, _, f in os.walk(subdir_path):
+                    if any(os.path.splitext(file)[1].lower() in VIDEO_EXTENSIONS for file in f):
+                        has_sub_series = True
+                        break
+                if has_sub_series:
+                    break
+
+            if has_sub_series:
+                # Process sub-series folders
+                for subdir_name in all_subdirs_in_main_anime:
+                    subdir_path = os.path.join(full_entry_path, subdir_name)
+                    # Only process if it's a directory and contains video files
+                    if os.path.isdir(subdir_path):
+                        # Walk through this subdirectory to find video files
+                        for root, _, files in os.walk(subdir_path):
+                            for file in files:
+                                if os.path.splitext(file)[1].lower() in VIDEO_EXTENSIONS:
+                                    full_path = os.path.join(root, file)
+                                    parsed_info = parse_filename(file)
+                                    
+                                    episode = parsed_info.get("episode")
+                                    # Season is 1 for sub-series, sub_series_title is the folder name
+                                    season = 1 
+                                    sub_series_title = subdir_name
+
+                                    db_manager.add_episode(full_path, main_anime_title, episode, season, sub_series_title)
+                                    scanned_video_data.append({
+                                        "file_path": full_path,
+                                        "title": main_anime_title,
+                                        "episode": episode,
+                                        "season": season,
+                                        "sub_series_title": sub_series_title
+                                    })
+            
+                # Process any files directly in the main folder that are not part of a sub-series
+                # This is a bit tricky, as os.walk will also find files in subdirs.
+                # We need to find files whose relative_root is just '.'
+                for full_path, relative_root, file in all_files_in_main_anime:
+                    if relative_root == '.': # File is directly in the main anime folder
+                        parsed_info = parse_filename(file)
+                        episode = parsed_info.get("episode")
+                        season = 0 # Season 0 for main series episodes
+                        sub_series_title = None
+
+                        db_manager.add_episode(full_path, main_anime_title, episode, season, sub_series_title)
                         scanned_video_data.append({
                             "file_path": full_path,
-                            "title": anime_title,
+                            "title": main_anime_title,
                             "episode": episode,
-                            "season": final_season
+                            "season": season,
+                            "sub_series_title": sub_series_title
                         })
+
+            else:
+                # No subdirectories with video files, so all video files belong to the main anime title
+                for full_path, relative_root, file in all_files_in_main_anime:
+                    parsed_info = parse_filename(file)
+                    episode = parsed_info.get("episode")
+                    season = 0 # Season 0 for main series episodes
+                    sub_series_title = None
+
+                    db_manager.add_episode(full_path, main_anime_title, episode, season, sub_series_title)
+                    scanned_video_data.append({
+                        "file_path": full_path,
+                        "title": main_anime_title,
+                        "episode": episode,
+                        "season": season,
+                        "sub_series_title": sub_series_title
+                    })
     
     return scanned_video_data
 
@@ -73,27 +124,45 @@ def load_library_from_db(db_manager: DatabaseManager):
 
 def group_episodes_by_anime(episodes_list):
     """
-    Groups a flat list of episode dictionaries by anime title and then by season.
+    Groups a flat list of episode dictionaries into a hierarchical structure:
+    Main Anime -> Sub-series (Seasons/Movies) -> Episodes.
     """
-    anime_groups = defaultdict(lambda: defaultdict(list))
-    for episode in episodes_list:
-        anime_groups[episode['title']][episode['season']].append(episode)
+    grouped_anime_data = defaultdict(lambda: {
+        "title": None,
+        "sub_series": defaultdict(lambda: {"title": None, "episodes": []}),
+        "episodes": [] # For episodes directly under the main anime folder
+    })
 
-    grouped_list = []
-    for title, seasons in anime_groups.items():
-        series_seasons = []
-        for season_num in sorted(seasons.keys()):
-            series_seasons.append({
-                "season_num": season_num,
-                "episodes": sorted(seasons[season_num], key=lambda x: x['episode'] if x['episode'] is not None else 0)
+    for episode in episodes_list:
+        main_anime_title = episode['title']
+        grouped_anime_data[main_anime_title]["title"] = main_anime_title
+
+        if episode['sub_series_title']:
+            sub_series_title = episode['sub_series_title']
+            grouped_anime_data[main_anime_title]["sub_series"][sub_series_title]["title"] = sub_series_title
+            grouped_anime_data[main_anime_title]["sub_series"][sub_series_title]["episodes"].append(episode)
+        else:
+            grouped_anime_data[main_anime_title]["episodes"].append(episode)
+
+    final_grouped_list = []
+    for main_title, data in grouped_anime_data.items():
+        main_anime_entry = {
+            "title": main_title,
+            "sub_series": [],
+            "episodes": sorted(data["episodes"], key=lambda x: x['episode'] if x['episode'] is not None else 0)
+        }
+
+        # Convert sub_series defaultdict to a sorted list
+        for sub_series_title, sub_series_data in sorted(data["sub_series"].items()):
+            main_anime_entry["sub_series"].append({
+                "title": sub_series_title,
+                "episodes": sorted(sub_series_data["episodes"], key=lambda x: x['episode'] if x['episode'] is not None else 0)
             })
-        grouped_list.append({
-            "title": title,
-            "seasons": series_seasons
-        })
+        
+        final_grouped_list.append(main_anime_entry)
     
-    # Sort by title
-    return sorted(grouped_list, key=lambda x: x['title'])
+    # Sort main anime entries by title
+    return sorted(final_grouped_list, key=lambda x: x['title'])
 
 if __name__ == '__main__':
     # Example usage:
@@ -110,10 +179,14 @@ if __name__ == '__main__':
     grouped_anime = group_episodes_by_anime(db_episodes)
     for anime in grouped_anime:
         print(f"Anime: {anime['title']}")
-        for season_data in anime.get('seasons', []):
-            print(f"  Season {season_data['season_num']}: {len(season_data['episodes'])} episodes")
-            for ep in season_data['episodes']:
-                print(f"    - S{ep['season']}E{ep['episode']} - {os.path.basename(ep['file_path'])}")
+        if anime['episodes']:
+            print("  Direct Episodes:")
+            for ep in anime['episodes']:
+                print(f"    - E{ep['episode']} - {os.path.basename(ep['file_path'])}")
+        for sub_series in anime['sub_series']:
+            print(f"  Sub-series: {sub_series['title']}")
+            for ep in sub_series['episodes']:
+                print(f"    - E{ep['episode']} - {os.path.basename(ep['file_path'])}")
 
     test_db_manager.close()
     if os.path.exists("test_aniplay.db"):

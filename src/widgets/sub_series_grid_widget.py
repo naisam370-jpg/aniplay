@@ -1,14 +1,14 @@
-import os
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QScrollArea
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QScrollArea, QPushButton
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap, QFont
+import os
 
-class AnimeCard(QWidget):
-    series_selected = Signal(dict) # Signal to emit when a series is selected
+class SubSeriesCard(QWidget):
+    sub_series_selected = Signal(dict) # Signal to emit when a sub-series is selected
 
-    def __init__(self, anime_series_data, parent=None):
+    def __init__(self, sub_series_data, parent=None):
         super().__init__(parent)
-        self.anime_series_data = anime_series_data
+        self.sub_series_data = sub_series_data
         self.setFixedSize(160, 250)
 
         layout = QVBoxLayout(self)
@@ -20,27 +20,18 @@ class AnimeCard(QWidget):
         self.cover_label.setFixedSize(150, 200)
         self.cover_label.setStyleSheet("border: 1px solid #555; background-color: #3a3a3a;")
         
+        # Attempt to load cover image from the first available episode in this sub-series
         cover_path = None
         total_episodes = 0
         watched_count = 0
 
-        # Collect episodes from direct list
-        for episode in anime_series_data.get("episodes", []):
+        for episode in sub_series_data.get("episodes", []):
             total_episodes += 1
             if episode.get('is_watched'):
                 watched_count += 1
             if not cover_path and episode.get("cover_path"):
                 cover_path = episode.get("cover_path")
-
-        # Collect episodes from sub-series
-        for sub_series_data in anime_series_data.get("sub_series", []):
-            for episode in sub_series_data.get("episodes", []):
-                total_episodes += 1
-                if episode.get('is_watched'):
-                    watched_count += 1
-                if not cover_path and episode.get("cover_path"):
-                    cover_path = episode.get("cover_path")
-                    
+                
         pixmap = QPixmap()
         if cover_path and os.path.exists(cover_path):
             pixmap.load(cover_path)
@@ -50,7 +41,7 @@ class AnimeCard(QWidget):
         else:
             self.cover_label.setText("No Cover")
 
-        title = anime_series_data.get("title", "Unknown Title")
+        title = sub_series_data.get("title", "Unknown Sub-series")
         
         display_text = f"{title}\n({watched_count}/{total_episodes} Watched)"
 
@@ -63,15 +54,16 @@ class AnimeCard(QWidget):
         layout.addWidget(self.title_label)
 
     def mousePressEvent(self, event):
-        """Handles click events on the anime card."""
+        """Handles click events on the sub-series card."""
         if event.button() == Qt.LeftButton:
-            self.series_selected.emit(self.anime_series_data)
+            self.sub_series_selected.emit(self.sub_series_data)
         super().mousePressEvent(event)
 
-class AnimeGridWidget(QScrollArea):
-    series_selected = Signal(dict) # Signal to bubble up from AnimeCard
+class SubSeriesGridWidget(QScrollArea):
+    sub_series_selected = Signal(dict) # Signal to bubble up from SubSeriesCard
+    back_to_anime_grid = Signal() # Signal to go back to main anime grid
 
-    def __init__(self, parent=None): # Removed mpv_player from constructor
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -79,26 +71,39 @@ class AnimeGridWidget(QScrollArea):
         self.content_widget = QWidget()
         self.setWidget(self.content_widget)
 
-        self.grid_layout = QGridLayout(self.content_widget)
-        self.grid_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout = QVBoxLayout(self.content_widget)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout.setSpacing(10)
+        self.main_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+
+        self.btn_back = QPushButton("← Back to Anime List")
+        self.btn_back.clicked.connect(self.back_to_anime_grid.emit)
+        self.btn_back.setFixedWidth(150)
+        self.main_layout.addWidget(self.btn_back, alignment=Qt.AlignTop | Qt.AlignLeft)
+
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(10)
         self.grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.main_layout.addLayout(self.grid_layout)
+        self.main_layout.addStretch() # Push content to top
 
         self.update_grid([]) # Initially empty
 
-    def update_grid(self, anime_series_list):
+    def update_grid(self, sub_series_list):
         """
-        Clears and repopulates the grid with new anime cards based on a list of anime series.
+        Clears and repopulates the grid with new sub-series cards.
         """
-        # Clear existing items
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
+        # Clear existing items in the grid layout (excluding the back button)
+        for i in reversed(range(self.grid_layout.count())):
+            item = self.grid_layout.itemAt(i)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
+            self.grid_layout.removeItem(item)
 
-        if not anime_series_list:
-            empty_label = QLabel("Your library is empty. Scan a folder in Settings to add anime.")
+        if not sub_series_list:
+            empty_label = QLabel("No sub-series found for this anime.")
             empty_label.setAlignment(Qt.AlignCenter)
             self.grid_layout.addWidget(empty_label, 0, 0, 1, -1)
             return
@@ -107,9 +112,9 @@ class AnimeGridWidget(QScrollArea):
         row = 0
         max_cols = 5
 
-        for anime_series_data in anime_series_list:
-            card = AnimeCard(anime_series_data)
-            card.series_selected.connect(self.series_selected.emit) # Bubble up the signal
+        for sub_series_data in sub_series_list:
+            card = SubSeriesCard(sub_series_data)
+            card.sub_series_selected.connect(self.sub_series_selected.emit) # Bubble up the signal
             self.grid_layout.addWidget(card, row, col)
             col += 1
             if col >= max_cols:

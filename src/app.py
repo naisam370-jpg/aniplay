@@ -7,6 +7,7 @@ from src.widgets.sidebar_widget import SidebarWidget
 from src.widgets.anime_grid_widget import AnimeGridWidget
 from src.widgets.search_widget import SearchWidget
 from src.widgets.settings_widget import SettingsWidget
+from src.widgets.sub_series_grid_widget import SubSeriesGridWidget # Import new widget
 from src.core.database_manager import DatabaseManager
 from src.core.library_scanner import load_library_from_db, group_episodes_by_anime, scan_library
 from src.core.mpv_player import MpvPlayer
@@ -38,12 +39,14 @@ class AniPlayWindow(QMainWindow):
 
         # --- Create Views ---
         self.anime_grid = AnimeGridWidget()
+        self.sub_series_grid_view = SubSeriesGridWidget() # Instantiate new widget
         self.search_view = SearchWidget(self.db_manager, self.mpv_player)
         self.settings_view = SettingsWidget(self.db_manager, self.settings_manager)
         self.episode_list_view = EpisodeListWidget(self.db_manager, self.mpv_player)
 
         # --- Add Views to Stacked Widget ---
         self.stacked_widget.addWidget(self.anime_grid)
+        self.stacked_widget.addWidget(self.sub_series_grid_view) # Add new widget
         self.stacked_widget.addWidget(self.episode_list_view)
         self.stacked_widget.addWidget(self.search_view)
         self.stacked_widget.addWidget(self.settings_view)
@@ -64,8 +67,10 @@ class AniPlayWindow(QMainWindow):
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_view))
 
         self.settings_view.scan_requested.connect(self.trigger_scan)
-        self.anime_grid.series_selected.connect(self.show_episode_list)
-        self.episode_list_view.back_requested.connect(self.show_anime_grid)
+        self.anime_grid.series_selected.connect(self.show_sub_series_or_episodes) # Connect to new method
+        self.sub_series_grid_view.sub_series_selected.connect(self.show_episodes_from_sub_series) # New connection
+        self.sub_series_grid_view.back_to_anime_grid.connect(self.show_anime_grid) # New connection
+        self.episode_list_view.back_requested.connect(self.show_anime_grid) # This will need to be dynamic
         self.episode_list_view.video_playing.connect(self.on_video_playing)
         self.search_view.video_playing.connect(self.on_video_playing)
 
@@ -93,12 +98,22 @@ class AniPlayWindow(QMainWindow):
         self.load_and_display_library()
         self.search_view.refresh_cache()
         
-        unique_titles = {item['title'] for item in video_files}
+        # Collect unique main anime titles for metadata fetching
+        unique_main_anime_titles = {item['title'] for item in video_files}
         
-        if unique_titles:
-            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path, list(unique_titles))
+        if unique_main_anime_titles:
+            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path, list(unique_main_anime_titles))
             self.metadata_fetcher.metadata_updated.connect(self.on_metadata_updated)
+            self.metadata_fetcher.finished.connect(self._metadata_fetcher_finished) # Connect finished signal
             self.metadata_fetcher.start()
+
+    def _metadata_fetcher_finished(self):
+        """Slot to handle cleanup when metadata fetcher thread finishes."""
+        print("Metadata fetcher thread finished.")
+        if self.metadata_fetcher:
+            self.metadata_fetcher.deleteLater()
+            self.metadata_fetcher = None # Clear reference
+
 
     def on_metadata_updated(self, title):
         print(f"UI: Metadata updated for {title}, reloading library.")
@@ -108,9 +123,34 @@ class AniPlayWindow(QMainWindow):
         self.load_and_display_library()
         self.stacked_widget.setCurrentWidget(self.anime_grid)
 
-    def show_episode_list(self, anime_series_data):
-        self.episode_list_view.populate_episodes(anime_series_data)
+    def show_sub_series_or_episodes(self, anime_data):
+        """
+        Shows either sub-series grid or episode list based on anime_data structure.
+        """
+        self.current_anime_data = anime_data # Store for back button context
+        if anime_data.get("sub_series"):
+            self.sub_series_grid_view.update_grid(anime_data["sub_series"])
+            self.stacked_widget.setCurrentWidget(self.sub_series_grid_view)
+            # Change back button for episode_list_view to go to sub_series_grid_view
+            self.episode_list_view.back_requested.disconnect()
+            self.episode_list_view.back_requested.connect(lambda: self.stacked_widget.setCurrentWidget(self.sub_series_grid_view))
+        elif anime_data.get("episodes"):
+            self.episode_list_view.populate_episodes(anime_data)
+            self.stacked_widget.setCurrentWidget(self.episode_list_view)
+            # Ensure back button for episode_list_view goes to anime_grid
+            self.episode_list_view.back_requested.disconnect()
+            self.episode_list_view.back_requested.connect(self.show_anime_grid)
+
+    def show_episodes_from_sub_series(self, sub_series_data):
+        """
+        Shows the episode list for a selected sub-series.
+        """
+        self.episode_list_view.populate_episodes(sub_series_data)
         self.stacked_widget.setCurrentWidget(self.episode_list_view)
+        # Change back button for episode_list_view to go to sub_series_grid_view
+        self.episode_list_view.back_requested.disconnect()
+        self.episode_list_view.back_requested.connect(lambda: self.stacked_widget.setCurrentWidget(self.sub_series_grid_view))
+
 
     def on_video_playing(self, anime_data):
         """Shows the player controls when a video starts playing."""

@@ -3,6 +3,7 @@ from src.core.anilist_api import AnilistAPI
 from src.core.database_manager import DatabaseManager
 from src.core.filename_parser import parse_filename # Import the parser
 import os
+from collections import defaultdict # Import defaultdict
 
 class MetadataFetcher(QThread):
     """
@@ -11,50 +12,59 @@ class MetadataFetcher(QThread):
     finished = Signal() # Signal emitted when all fetching is complete
     metadata_updated = Signal(str) # Signal emitted when a single anime's metadata is updated
 
-    def __init__(self, db_path: str, anime_titles: list, parent=None):
+    def __init__(self, db_path: str, series_titles: list, parent=None):
         super().__init__(parent)
         self.db_path = db_path
-        self.anime_titles = anime_titles
+        self.series_titles = series_titles
         self.anilist_api = AnilistAPI()
 
     def run(self):
         """The main work of the thread."""
-        # Create a new DatabaseManager instance for this thread
         db_manager = DatabaseManager(self.db_path)
         
-        print(f"Starting metadata fetch for {len(self.anime_titles)} titles...")
-        for title in self.anime_titles:
-            # Parse the filename to get a cleaner title for API search
-            parsed_info = parse_filename(title)
-            clean_title = parsed_info.get("title") if parsed_info.get("title") else title
+        # Map base anime titles to all their derived series titles
+        base_anime_to_series_map = defaultdict(list)
+        for series_title in self.series_titles:
+            # Extract base anime title (e.g., "My Anime" from "My Anime - Season 1")
+            base_anime_title = series_title.split(' - ')[0].strip()
+            base_anime_to_series_map[base_anime_title].append(series_title)
 
-            # First, check if a cover path already exists in the database for this title
-            existing_cover_in_db = db_manager.get_cover_path_for_title(title)
-            if existing_cover_in_db:
-                print(f"Cover path for '{title}' already in DB: {existing_cover_in_db}. Skipping fetch.")
-                continue
+        fetched_base_anime_metadata = {} # Cache to avoid re-fetching for the same base anime
 
-            # If not in DB, then check if the file exists on disk (e.g., from a previous manual placement)
-            cover_path = os.path.join("covers", f"{title}.jpg")
-            if os.path.exists(cover_path):
-                print(f"Cover file for '{title}' exists on disk. Updating DB with this path.")
-                db_manager.update_cover_path(title, cover_path)
-                self.metadata_updated.emit(title)
-                continue
-
-            print(f"Fetching metadata for '{clean_title}' (original: '{title}')...")
-            metadata = self.anilist_api.fetch_anime_metadata(clean_title)
+        print(f"Starting metadata fetch for {len(self.series_titles)} series titles...")
+        for base_anime_title, derived_series_titles in base_anime_to_series_map.items():
+            if base_anime_title in fetched_base_anime_metadata:
+                metadata = fetched_base_anime_metadata[base_anime_title]
+            else:
+                print(f"Fetching metadata for base anime: '{base_anime_title}'...")
+                metadata = self.anilist_api.fetch_anime_metadata(base_anime_title)
+                fetched_base_anime_metadata[base_anime_title] = metadata
 
             if metadata and metadata.get('coverImage', {}).get('extraLarge'):
                 cover_url = metadata['coverImage']['extraLarge']
                 description = metadata.get('description', 'No description available.')
                 genres = metadata.get('genres', [])
                 
-                # Download the cover
-                if self.anilist_api.download_cover(cover_url, cover_path):
-                    # Update the database with all the new metadata
-                    db_manager.update_series_metadata(title, cover_path, description, genres)
-                    self.metadata_updated.emit(title)
+                # Apply this metadata to all derived series titles
+                for series_title in derived_series_titles:
+                    # Check if cover already exists for this specific series_title
+                    existing_cover_in_db = db_manager.get_cover_path_for_title(series_title)
+                    if existing_cover_in_db:
+                        print(f"Cover path for '{series_title}' already in DB: {existing_cover_in_db}. Skipping download.")
+                        # Still update metadata if description/genres might be missing
+                        db_manager.update_series_metadata(series_title, existing_cover_in_db, description, genres)
+                        self.metadata_updated.emit(series_title)
+                        continue
+
+                    cover_path = os.path.join("covers", f"{series_title}.jpg")
+                    # Download the cover
+                    if self.anilist_api.download_cover(cover_url, cover_path):
+                        # Update the database with all the new metadata for this specific series_title
+                        db_manager.update_series_metadata(series_title, cover_path, description, genres)
+                        self.metadata_updated.emit(series_title)
+            else:
+                for series_title in derived_series_titles:
+                    print(f"Could not fetch metadata for '{base_anime_title}' (for series '{series_title}').")
         
         print("Metadata fetch complete.")
         db_manager.close() # Close the database connection for this thread
