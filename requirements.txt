@@ -1,3 +1,5 @@
-PySide6
-python-mpv
-requests
+pyside6==6.9.2
+pyside6_addons==6.9.2
+pyside6_essentials==6.9.2
+rapidfuzz==3.14.3
+Requests==2.32.5

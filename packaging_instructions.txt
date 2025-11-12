@@ -1,0 +1,42 @@
+**How to package AniPlay with PyInstaller**
+
+This guide provides instructions on how to package the AniPlay application for Windows and Linux using PyInstaller.
+
+**1. Install PyInstaller**
+
+First, you need to install PyInstaller. You can do this using pip:
+
+```
+pip install pyinstaller
+```
+
+**2. Packaging for Linux**
+
+To package the application for Linux, run the following command in the root directory of the project:
+
+```
+pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_theme.qss:src/styles" --add-data "covers:covers" src/app.py
+```
+
+**Explanation of the command:**
+
+*   `--onefile`: Creates a single executable file.
+*   `--windowed`: Prevents the console window from appearing when the application is run.
+*   `--name AniPlay`: Sets the name of the executable to `AniPlay`.
+*   `--add-data "src/styles/dark_theme.qss:src/styles"`: Includes the `dark_theme.qss` file in the `src/styles` directory in the packaged app.
+*   `--add-data "covers:covers"`: Includes the `covers` directory in the packaged app.
+*   `src/app.py`: The main script of the application.
+
+**3. Packaging for Windows**
+
+To package the application for Windows, run the following command:
+
+```
+pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_theme.qss;src/styles" --add-data "covers;covers" src/app.py
+```
+
+**Note the semicolon (`;`)** used as a separator in the `--add-data` option for Windows, instead of the colon (`:`) used for Linux.
+
+**4. Location of the Executable**
+
+After running the command, PyInstaller will create a `dist` directory in the root of your project. The executable file (`AniPlay` on Linux, `AniPlay.exe` on Windows) will be located in this `dist` directory.
