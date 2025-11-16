@@ -159,8 +159,10 @@ QTreeView {
 }
 
 #EpisodeListItem {
-    border-bottom: 1px solid #444;
+    border: 1px solid #444;
+    border-radius: 3px; /* Add some rounded corners for a softer look */
     padding: 5px;
+    margin-bottom: 5px; /* Add some space between items */
 }
 
 #EpisodeListItem:hover {
