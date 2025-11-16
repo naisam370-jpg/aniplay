@@ -15,7 +15,7 @@ pip install pyinstaller
 To package the application for Linux, run the following command in the root directory of the project:
 
 ```
-pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_theme.qss:src/styles" --add-data "covers:covers" src/app.py
+pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_theme.qss:src/styles" --add-data "assets:assets" --add-data "covers:covers" --icon "assets/app_icon.png" src/app.py
 ```
 
 **Explanation of the command:**
@@ -25,6 +25,7 @@ pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_them
 *   `--name AniPlay`: Sets the name of the executable to `AniPlay`.
 *   `--add-data "src/styles/dark_theme.qss:src/styles"`: Includes the `dark_theme.qss` file in the `src/styles` directory in the packaged app.
 *   `--add-data "covers:covers"`: Includes the `covers` directory in the packaged app.
+*   `--icon "assets/app_icon.png"`: Sets the application icon. For Windows, it's recommended to use an `.ico` file (e.g., `--icon "assets/app_icon.ico"`). You will need to create `assets/app_icon.png` and `assets/app_icon.ico` (for Windows packaging) and place your desired icon files there.
 *   `src/app.py`: The main script of the application.
 
 **3. Packaging for Windows**
@@ -32,7 +33,7 @@ pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_them
 To package the application for Windows, run the following command:
 
 ```
-pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_theme.qss;src/styles" --add-data "covers;covers" src/app.py
+pyinstaller --onefile --windowed --name AniPlay --add-data "src/styles/dark_theme.qss;src/styles" --add-data "assets;assets" --add-data "covers;covers" --icon "assets/app_icon.ico" src/app.py
 ```
 
 **Note the semicolon (`;`)** used as a separator in the `--add-data` option for Windows, instead of the colon (`:`) used for Linux.
