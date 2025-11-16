@@ -9,7 +9,7 @@ class EpisodeListItem(QWidget):
     def __init__(self, item_data, parent=None):
         super().__init__(parent)
         self.item_data = item_data
-        self.setObjectName("EpisodeListItem")
+        self.setProperty("class", "EpisodeListItem")
         self.setCursor(Qt.PointingHandCursor)
 
         layout = QHBoxLayout(self)
@@ -42,7 +42,7 @@ class ContentCard(QWidget):
         super().__init__(parent)
         self.item_data = item_data
         self.main_anime_cover_path = main_anime_cover_path
-        self.setObjectName("ContentCard")
+        self.setProperty("class", "ContentCard")
         self.setFixedSize(160, 250)
         self.setCursor(Qt.PointingHandCursor) # Indicate clickable
 
@@ -51,7 +51,7 @@ class ContentCard(QWidget):
         layout.setSpacing(5)
 
         self.cover_label = QLabel()
-        self.cover_label.setObjectName("CoverLabel")
+        self.cover_label.setProperty("class", "CoverLabel")
         self.cover_label.setAlignment(Qt.AlignCenter)
         self.cover_label.setFixedSize(150, 200)
         
