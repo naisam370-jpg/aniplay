@@ -106,6 +106,9 @@ class AnimeDetailView(QScrollArea):
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.current_items = []
+        self.main_anime_cover_path = None
+        self.is_episode_view = False
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
@@ -161,6 +164,7 @@ class AnimeDetailView(QScrollArea):
         self.content_list_layout.setContentsMargins(0, 0, 0, 0)
         self.content_list_layout.setSpacing(5)
         self.content_list_layout.setAlignment(Qt.AlignTop)
+        self.content_list_layout.addStretch(1)
         self.view_stack.addWidget(list_container)
         
         self.main_layout.addStretch()
@@ -184,6 +188,7 @@ class AnimeDetailView(QScrollArea):
             self.view_stack.setCurrentIndex(0) # Grid view
             self.btn_toggle_view.setText("List View")
             self.settings_manager.set("episode_view_mode", "grid")
+        self._update_current_view()
 
     def _clear_layout(self, layout):
         """Removes all widgets from a layout."""
@@ -200,46 +205,50 @@ class AnimeDetailView(QScrollArea):
         self.description_label.setText(description)
         self.genres_label.setText(f"Genres: {genres}")
 
-        self._clear_layout(self.content_grid_layout)
-        self._clear_layout(self.content_list_layout)
-
         direct_episodes = anime_data.get("episodes", [])
         sub_series_list = anime_data.get("sub_series", [])
 
-        all_items_to_display = []
-        is_episode_view = False
+        self.current_items = []
+        self.is_episode_view = False
+        self.main_anime_cover_path = main_anime_cover_path
+
         if sub_series_list:
-            all_items_to_display.extend(sub_series_list)
+            self.current_items.extend(sub_series_list)
             self.btn_toggle_view.hide()
         elif direct_episodes:
-            all_items_to_display.extend(sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0))
-            is_episode_view = True
+            self.current_items.extend(sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0))
+            self.is_episode_view = True
             self.btn_toggle_view.show()
 
-        if not all_items_to_display:
-            # This part of the original code for adding an empty label might need adjustment
-            # depending on where you want the "No content" message to appear.
-            # For now, let's add it to both layouts and it will be shown in the active one.
+        self._update_current_view()
+
+    def _update_current_view(self):
+        self._clear_layout(self.content_grid_layout)
+        self._clear_layout(self.content_list_layout)
+
+        if not self.current_items:
             self.content_grid_layout.addWidget(QLabel("No content found for this anime."), 0, 0)
             self.content_list_layout.addWidget(QLabel("No content found for this anime."))
             return
 
-        self._populate_views(all_items_to_display, main_anime_cover_path, is_episode_view)
+        if self.view_stack.currentIndex() == 0: # Grid view
+            self._populate_grid_view()
+        else: # List view
+            self._populate_list_view()
 
-    def _populate_views(self, items, main_anime_cover_path, is_episode_view):
-        # Populate Grid View
+    def _populate_grid_view(self):
         col, row, max_cols = 0, 0, 5
-        for item_data in items:
-            card = ContentCard(item_data, main_anime_cover_path)
+        for item_data in self.current_items:
+            card = ContentCard(item_data, self.main_anime_cover_path)
             card.clicked.connect(self.sub_series_or_episode_selected.emit)
             self.content_grid_layout.addWidget(card, row, col)
             col += 1
             if col >= max_cols:
                 col, row = 0, row + 1
-
-        # Populate List View (only for episodes)
-        if is_episode_view:
-            for item_data in items:
+    
+    def _populate_list_view(self):
+        if self.is_episode_view:
+            for item_data in self.current_items:
                 list_item = EpisodeListItem(item_data)
                 list_item.clicked.connect(self.sub_series_or_episode_selected.emit)
                 self.content_list_layout.addWidget(list_item)
