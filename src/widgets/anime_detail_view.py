@@ -1,7 +1,38 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QScrollArea, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QScrollArea, QPushButton, QStackedWidget, QHBoxLayout
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap, QFont
 import os
+
+class EpisodeListItem(QWidget):
+    clicked = Signal(dict)
+
+    def __init__(self, item_data, parent=None):
+        super().__init__(parent)
+        self.item_data = item_data
+        self.setCursor(Qt.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 5, 10, 5)
+
+        episode_num = item_data.get("episode")
+        title = f"Episode {episode_num}" if episode_num is not None else os.path.basename(item_data["file_path"])
+        
+        self.title_label = QLabel(title)
+        self.title_label.setFont(QFont("Arial", 11))
+        
+        layout.addWidget(self.title_label)
+        layout.addStretch()
+
+        if item_data.get("is_watched"):
+            self.watched_label = QLabel("Watched")
+            self.watched_label.setFont(QFont("Arial", 10, italic=True))
+            self.watched_label.setStyleSheet("color: #888;")
+            layout.addWidget(self.watched_label)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self.item_data)
+        super().mousePressEvent(event)
 
 class ContentCard(QWidget):
     clicked = Signal(dict) # Signal to emit when the card is clicked
@@ -72,8 +103,9 @@ class AnimeDetailView(QScrollArea):
     sub_series_or_episode_selected = Signal(dict)
     back_to_anime_grid = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
+        self.settings_manager = settings_manager
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
@@ -83,14 +115,25 @@ class AnimeDetailView(QScrollArea):
         self.main_layout = QVBoxLayout(self.content_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(10)
-        self.main_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.main_layout.setAlignment(Qt.AlignTop)
 
-        self.btn_back = QPushButton("← Back to Anime List")
+        # --- Top Controls ---
+        top_controls_layout = QHBoxLayout()
+        self.btn_back = QPushButton("← Back")
         self.btn_back.clicked.connect(self.back_to_anime_grid.emit)
-        self.btn_back.setFixedWidth(150)
-        self.main_layout.addWidget(self.btn_back, alignment=Qt.AlignTop | Qt.AlignLeft)
+        self.btn_back.setFixedWidth(100)
+        top_controls_layout.addWidget(self.btn_back)
 
-        # Labels for description and genres
+        top_controls_layout.addStretch()
+
+        self.btn_toggle_view = QPushButton("List View")
+        self.btn_toggle_view.setCheckable(True)
+        self.btn_toggle_view.clicked.connect(self._toggle_view)
+        self.btn_toggle_view.setFixedWidth(100)
+        top_controls_layout.addWidget(self.btn_toggle_view)
+        self.main_layout.addLayout(top_controls_layout)
+
+        # --- Description and Genres ---
         self.description_label = QLabel()
         self.description_label.setWordWrap(True)
         self.description_label.setFont(QFont("Arial", 10))
@@ -100,57 +143,103 @@ class AnimeDetailView(QScrollArea):
         self.genres_label.setFont(QFont("Arial", 10, italic=True))
         self.main_layout.addWidget(self.genres_label)
 
-        self.content_grid_layout = QGridLayout()
+        # --- Content Views (Grid and List) ---
+        self.view_stack = QStackedWidget()
+        self.main_layout.addWidget(self.view_stack)
+
+        # Grid View
+        grid_container = QWidget()
+        self.content_grid_layout = QGridLayout(grid_container)
         self.content_grid_layout.setContentsMargins(0, 0, 0, 0)
         self.content_grid_layout.setSpacing(10)
         self.content_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.main_layout.addLayout(self.content_grid_layout)
+        self.view_stack.addWidget(grid_container)
+
+        # List View
+        list_container = QWidget()
+        self.content_list_layout = QVBoxLayout(list_container)
+        self.content_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_list_layout.setSpacing(5)
+        self.content_list_layout.setAlignment(Qt.AlignTop)
+        self.view_stack.addWidget(list_container)
+        
         self.main_layout.addStretch()
 
-    def update_view(self, anime_data, main_anime_cover_path, description, genres):
-        """
-        Clears and repopulates the view with ContentCards for direct episodes and sub-series,
-        and displays the anime's description and genres.
-        """
-        # Update description and genres
-        self.description_label.setText(description)
-        self.genres_label.setText(f"Genres: {genres}")
+        # Load initial view mode
+        initial_view_mode = self.settings_manager.get("episode_view_mode", "grid")
+        if initial_view_mode == "list":
+            self.btn_toggle_view.setChecked(True)
+            self.btn_toggle_view.setText("Grid View")
+            self.view_stack.setCurrentIndex(1)
+        else:
+            self.btn_toggle_view.setText("List View")
+            self.view_stack.setCurrentIndex(0)
 
-        # Clear existing items in the grid layout
-        for i in reversed(range(self.content_grid_layout.count())):
-            item = self.content_grid_layout.itemAt(i)
+    def _toggle_view(self):
+        if self.btn_toggle_view.isChecked():
+            self.view_stack.setCurrentIndex(1) # List view
+            self.btn_toggle_view.setText("Grid View")
+            self.settings_manager.set("episode_view_mode", "list")
+        else:
+            self.view_stack.setCurrentIndex(0) # Grid view
+            self.btn_toggle_view.setText("List View")
+            self.settings_manager.set("episode_view_mode", "grid")
+
+    def _clear_layout(self, layout):
+        """Removes all widgets from a layout."""
+        while layout.count():
+            item = layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-            self.content_grid_layout.removeItem(item)
+
+    def update_view(self, anime_data, main_anime_cover_path, description, genres):
+        """
+        Clears and repopulates the view with content cards or list items.
+        """
+        self.description_label.setText(description)
+        self.genres_label.setText(f"Genres: {genres}")
+
+        self._clear_layout(self.content_grid_layout)
+        self._clear_layout(self.content_list_layout)
 
         direct_episodes = anime_data.get("episodes", [])
         sub_series_list = anime_data.get("sub_series", [])
 
         all_items_to_display = []
-        # If there are sub-series, display them. Otherwise, display direct episodes.
+        is_episode_view = False
         if sub_series_list:
-            for sub_series_data in sub_series_list:
-                all_items_to_display.append(sub_series_data)
+            all_items_to_display.extend(sub_series_list)
+            self.btn_toggle_view.hide()
         elif direct_episodes:
-            for episode in sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0):
-                all_items_to_display.append(episode)
-
-        col = 0
-        row = 0
-        max_cols = 5
+            all_items_to_display.extend(sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0))
+            is_episode_view = True
+            self.btn_toggle_view.show()
 
         if not all_items_to_display:
-            empty_label = QLabel("No content found for this anime.")
-            empty_label.setAlignment(Qt.AlignCenter)
-            self.main_layout.addWidget(empty_label)
+            # This part of the original code for adding an empty label might need adjustment
+            # depending on where you want the "No content" message to appear.
+            # For now, let's add it to both layouts and it will be shown in the active one.
+            self.content_grid_layout.addWidget(QLabel("No content found for this anime."), 0, 0)
+            self.content_list_layout.addWidget(QLabel("No content found for this anime."))
             return
 
-        for item_data in all_items_to_display:
+        self._populate_views(all_items_to_display, main_anime_cover_path, is_episode_view)
+
+    def _populate_views(self, items, main_anime_cover_path, is_episode_view):
+        # Populate Grid View
+        col, row, max_cols = 0, 0, 5
+        for item_data in items:
             card = ContentCard(item_data, main_anime_cover_path)
             card.clicked.connect(self.sub_series_or_episode_selected.emit)
             self.content_grid_layout.addWidget(card, row, col)
             col += 1
             if col >= max_cols:
-                col = 0
-                row += 1
+                col, row = 0, row + 1
+
+        # Populate List View (only for episodes)
+        if is_episode_view:
+            for item_data in items:
+                list_item = EpisodeListItem(item_data)
+                list_item.clicked.connect(self.sub_series_or_episode_selected.emit)
+                self.content_list_layout.addWidget(list_item)

@@ -43,7 +43,7 @@ class AniPlayWindow(QMainWindow):
 
         # --- Create Views ---
         self.anime_grid = AnimeGridWidget()
-        self.anime_detail_view = AnimeDetailView() # Instantiate new widget
+        self.anime_detail_view = AnimeDetailView(self.settings_manager) # Instantiate new widget
         self.search_view = SearchWidget(self.db_manager, self.mpv_player)
         self.settings_view = SettingsWidget(self.db_manager, self.settings_manager)
 
