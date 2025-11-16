@@ -1,39 +1,24 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QScrollArea, QGridLayout
+from PySide6.QtWidgets import QWidget, QLabel, QScrollArea, QGridLayout, QLineEdit
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from src.core.database_manager import DatabaseManager
 from src.core.mpv_player import MpvPlayer
 from rapidfuzz import process, fuzz
 import os
+from .ui_search_widget import Ui_Form as Ui_SearchWidget
 
-class SearchWidget(QWidget):
+class SearchWidget(QWidget, Ui_SearchWidget):
     video_playing = Signal(dict)
 
     def __init__(self, db_manager: DatabaseManager, mpv_player: MpvPlayer, parent=None):
         super().__init__(parent)
+        self.setupUi(self)
+        
         self.db_manager = db_manager
         self.mpv_player = mpv_player
         self.all_episodes = []
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search your library (e.g., 'spy family')...")
         self.search_input.textChanged.connect(self.on_search_query_changed)
-        layout.addWidget(self.search_input)
-
-        self.results_scroll_area = QScrollArea()
-        self.results_scroll_area.setWidgetResizable(True)
-        self.results_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        layout.addWidget(self.results_scroll_area)
-
-        self.scroll_content = QWidget()
-        self.results_grid_layout = QGridLayout(self.scroll_content)
-        self.results_grid_layout.setContentsMargins(10, 10, 10, 10)
-        self.results_grid_layout.setSpacing(10)
-        self.results_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.results_scroll_area.setWidget(self.scroll_content)
         
         self.refresh_cache() # Initial cache load
 

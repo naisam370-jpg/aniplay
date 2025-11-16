@@ -1,21 +1,17 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel
+from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt
+from .ui_player_control_widget import Ui_Form as Ui_PlayerControlWidget
 
-class PlayerControlWidget(QWidget):
+class PlayerControlWidget(QWidget, Ui_PlayerControlWidget):
     def __init__(self, mpv_player, parent=None):
         super().__init__(parent)
+        self.setupUi(self)
+        
         self.mpv_player = mpv_player
         self.current_video_data = None
 
         self.setFixedHeight(60) # Fixed height for the control bar
         self.setStyleSheet("background-color: #282828; border-top: 1px solid #555;")
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 5, 10, 5)
-
-        self.now_playing_label = QLabel("Nothing playing")
-        layout.addWidget(self.now_playing_label)
-        layout.addStretch()
 
 
     def update_info(self, anime_data):

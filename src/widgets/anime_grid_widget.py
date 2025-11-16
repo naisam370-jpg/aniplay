@@ -2,6 +2,7 @@ import os
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QScrollArea
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap, QFont
+from .ui_anime_grid_widget import Ui_AnimeGridWidget
 
 class AnimeCard(QWidget):
     series_selected = Signal(dict) # Signal to emit when a series is selected
@@ -68,22 +69,12 @@ class AnimeCard(QWidget):
             self.series_selected.emit(self.anime_series_data)
         super().mousePressEvent(event)
 
-class AnimeGridWidget(QScrollArea):
+class AnimeGridWidget(QScrollArea, Ui_AnimeGridWidget):
     series_selected = Signal(dict) # Signal to bubble up from AnimeCard
 
-    def __init__(self, parent=None): # Removed mpv_player from constructor
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        self.content_widget = QWidget()
-        self.setWidget(self.content_widget)
-
-        self.grid_layout = QGridLayout(self.content_widget)
-        self.grid_layout.setContentsMargins(10, 10, 10, 10)
-        self.grid_layout.setSpacing(10)
-        self.grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-
+        self.setupUi(self)
         self.update_grid([]) # Initially empty
 
     def update_grid(self, anime_series_list):
