@@ -75,12 +75,34 @@ class AnimeGridWidget(QScrollArea, Ui_AnimeGridWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setupUi(self)
+        self.anime_series_list = []
+        self.current_cols = 0
         self.update_grid([]) # Initially empty
 
     def update_grid(self, anime_series_list):
         """
-        Clears and repopulates the grid with new anime cards based on a list of anime series.
+        Stores the list of anime series and triggers a relayout.
         """
+        self.anime_series_list = anime_series_list
+        self._relayout_grid()
+
+    def _relayout_grid(self):
+        """
+        Recalculates column count and lays out the grid if necessary.
+        """
+        card_width = 160 + self.grid_layout.spacing()
+        width = self.width()
+        
+        if width < card_width:
+            cols = 1
+        else:
+            cols = max(1, int(width / card_width))
+
+        if cols == self.current_cols and self.grid_layout.count() > 0:
+            return # No change needed
+
+        self.current_cols = cols
+        
         # Clear existing items
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
@@ -88,21 +110,24 @@ class AnimeGridWidget(QScrollArea, Ui_AnimeGridWidget):
             if widget:
                 widget.deleteLater()
 
-        if not anime_series_list:
+        if not self.anime_series_list:
             empty_label = QLabel("Your library is empty. Scan a folder in Settings to add anime.")
             empty_label.setAlignment(Qt.AlignCenter)
             self.grid_layout.addWidget(empty_label, 0, 0, 1, -1)
             return
 
-        col = 0
         row = 0
-        max_cols = 5
-
-        for anime_series_data in anime_series_list:
+        col = 0
+        for anime_series_data in self.anime_series_list:
             card = AnimeCard(anime_series_data)
-            card.series_selected.connect(self.series_selected.emit) # Bubble up the signal
+            card.series_selected.connect(self.series_selected.emit)
             self.grid_layout.addWidget(card, row, col)
             col += 1
-            if col >= max_cols:
+            if col >= self.current_cols:
                 col = 0
                 row += 1
+
+    def resizeEvent(self, event):
+        """Handle resize events to relayout the grid."""
+        super().resizeEvent(event)
+        self._relayout_grid()
