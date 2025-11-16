@@ -140,3 +140,29 @@ QTreeView {
     background-color: #2e2e2e;
     alternate-background-color: #3a3a3a;
 }
+
+/* Custom Widgets */
+
+#ContentCard {
+    background-color: #3a3a3a;
+    border-radius: 5px;
+}
+
+#ContentCard:hover {
+    background-color: #4a4a4a;
+}
+
+#CoverLabel {
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #2e2e2e;
+}
+
+#EpisodeListItem {
+    border-bottom: 1px solid #444;
+    padding: 5px;
+}
+
+#EpisodeListItem:hover {
+    background-color: #4a4a4a;
+}
