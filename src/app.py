@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, Q
 from PySide6.QtGui import QIcon
 
 from src.widgets.player_control_widget import PlayerControlWidget
-from src.widgets.episode_list_widget import EpisodeListWidget
+
 from src.widgets.sidebar_widget import SidebarWidget
 from src.widgets.anime_grid_widget import AnimeGridWidget
 from src.widgets.search_widget import SearchWidget
@@ -22,6 +22,8 @@ class AniPlayWindow(QMainWindow):
         self.mpv_player = mpv_player
         self.settings_manager = settings_manager
         self.metadata_fetcher = None
+        self.current_main_anime_title = None
+        self.current_main_anime_data = None
         self.setWindowTitle("AniPlay")
         self.setWindowIcon(QIcon("assets/app_icon.png"))
         self.setGeometry(100, 100, 1200, 700)
@@ -44,12 +46,12 @@ class AniPlayWindow(QMainWindow):
         self.anime_detail_view = AnimeDetailView() # Instantiate new widget
         self.search_view = SearchWidget(self.db_manager, self.mpv_player)
         self.settings_view = SettingsWidget(self.db_manager, self.settings_manager)
-        self.episode_list_view = EpisodeListWidget(self.db_manager, self.mpv_player)
+
 
         # --- Add Views to Stacked Widget ---
         self.stacked_widget.addWidget(self.anime_grid)
         self.stacked_widget.addWidget(self.anime_detail_view) # Add new widget
-        self.stacked_widget.addWidget(self.episode_list_view)
+
         self.stacked_widget.addWidget(self.search_view)
         self.stacked_widget.addWidget(self.settings_view)
 
@@ -69,11 +71,10 @@ class AniPlayWindow(QMainWindow):
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_view))
 
         self.settings_view.scan_requested.connect(self.trigger_scan)
-        self.anime_grid.series_selected.connect(self.show_anime_detail) # Connect to new method
+        self.anime_grid.series_selected.connect(lambda anime_data: self.show_anime_detail(anime_data, is_main_anime=True)) # Connect to new method
         self.anime_detail_view.sub_series_or_episode_selected.connect(self.handle_anime_detail_selection) # New connection
         self.anime_detail_view.back_to_anime_grid.connect(self.show_anime_grid) # New connection
-        self.episode_list_view.back_requested.connect(self.show_anime_grid) # Default back to anime grid
-        self.episode_list_view.video_playing.connect(self.on_video_playing)
+
         self.search_view.video_playing.connect(self.on_video_playing)
 
         # --- Initial Load ---
@@ -125,30 +126,43 @@ class AniPlayWindow(QMainWindow):
         self.load_and_display_library()
         self.stacked_widget.setCurrentWidget(self.anime_grid)
 
-    def show_anime_detail(self, anime_data):
+    def show_anime_detail(self, anime_data, is_main_anime=False):
         """
-        Shows the AnimeDetailView for a selected main anime.
+        Shows the AnimeDetailView for a selected anime or sub-series.
+        If is_main_anime is True, it means we are viewing the main anime page,
+        and we should store its title for fetching metadata for sub-series.
         """
-        self.current_main_anime_data = anime_data # Store for back button context
-        main_anime_cover_path = self.db_manager.get_cover_path_for_title(anime_data["title"])
-        anime_metadata = self.db_manager.get_anime_metadata(anime_data["title"])
+        if is_main_anime:
+            self.current_main_anime_title = anime_data["title"]
+            self.current_main_anime_data = anime_data # Store for back button context
+
+        main_anime_cover_path = self.db_manager.get_cover_path_for_title(self.current_main_anime_title)
+        anime_metadata = self.db_manager.get_anime_metadata(self.current_main_anime_title)
         description = anime_metadata["description"] if anime_metadata else "No description available."
         genres = ", ".join(anime_metadata["genres"]) if anime_metadata and anime_metadata["genres"] else "N/A"
+        
         self.anime_detail_view.update_view(anime_data, main_anime_cover_path, description, genres)
         self.stacked_widget.setCurrentWidget(self.anime_detail_view)
-        # Ensure back button for episode_list_view goes to anime_detail_view
-        self.episode_list_view.back_requested.disconnect()
-        self.episode_list_view.back_requested.connect(lambda: self.stacked_widget.setCurrentWidget(self.anime_detail_view))
+        
+        # Adjust back button behavior
+        self.anime_detail_view.back_to_anime_grid.disconnect()
+        if is_main_anime:
+            self.anime_detail_view.back_to_anime_grid.connect(self.show_anime_grid)
+        else:
+            # If viewing a sub-series, back button should go to the main anime detail view
+            self.anime_detail_view.back_to_anime_grid.connect(lambda: self.show_anime_detail(self.current_main_anime_data, is_main_anime=True))
+
 
     def handle_anime_detail_selection(self, selected_data):
         """
-        Handles selection from AnimeDetailView (either a sub-series or a direct episode).
+        Handles selection from AnimeDetailView.
+        If it's a sub-series, it drills down.
+        If it's an episode, it plays the video.
         """
-        if "episodes" in selected_data: # It's a sub-series or a main anime's direct episodes
-            self.episode_list_view.populate_episodes(selected_data)
-            self.stacked_widget.setCurrentWidget(self.episode_list_view)
-        elif "file_path" in selected_data: # It's a direct episode from AnimeDetailView
-            self.mpv_player.play_video(selected_data["file_path"]) # Initiate playback
+        if "episodes" in selected_data:  # It's a sub-series
+            self.show_anime_detail(selected_data, is_main_anime=False)
+        elif "file_path" in selected_data:  # It's an episode
+            self.mpv_player.play_video(selected_data["file_path"])
             self.on_video_playing(selected_data)
 
 

@@ -128,13 +128,13 @@ class AnimeDetailView(QScrollArea):
         sub_series_list = anime_data.get("sub_series", [])
 
         all_items_to_display = []
-        # Add direct episodes
-        for episode in sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0):
-            all_items_to_display.append(episode)
-        
-        # Add sub-series
-        for sub_series_data in sub_series_list:
-            all_items_to_display.append(sub_series_data)
+        # If there are sub-series, display them. Otherwise, display direct episodes.
+        if sub_series_list:
+            for sub_series_data in sub_series_list:
+                all_items_to_display.append(sub_series_data)
+        elif direct_episodes:
+            for episode in sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0):
+                all_items_to_display.append(episode)
 
         col = 0
         row = 0
