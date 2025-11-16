@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QScroll
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap, QFont
 import os
+from .ui_anime_detail_view import Ui_Form as Ui_AnimeDetailView
 
 class EpisodeListItem(QWidget):
     clicked = Signal(dict)
@@ -115,80 +116,38 @@ class AnimeDetailView(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.content_widget = QWidget()
+        self.ui = Ui_AnimeDetailView()
+        self.ui.setupUi(self.content_widget)
         self.setWidget(self.content_widget)
 
-        self.main_layout = QVBoxLayout(self.content_widget)
-        self.main_layout.setContentsMargins(10, 10, 10, 10)
-        self.main_layout.setSpacing(10)
-        self.main_layout.setAlignment(Qt.AlignTop)
+        # --- Connections ---
+        self.ui.btn_back.clicked.connect(self.back_to_anime_grid.emit)
+        self.ui.btn_toggle_view.clicked.connect(self._toggle_view)
 
-        # --- Top Controls ---
-        top_controls_layout = QHBoxLayout()
-        self.btn_back = QPushButton("← Back")
-        self.btn_back.clicked.connect(self.back_to_anime_grid.emit)
-        self.btn_back.setFixedWidth(100)
-        top_controls_layout.addWidget(self.btn_back)
-
-        top_controls_layout.addStretch()
-
-        self.btn_toggle_view = QPushButton("List View")
-        self.btn_toggle_view.setCheckable(True)
-        self.btn_toggle_view.clicked.connect(self._toggle_view)
-        self.btn_toggle_view.setFixedWidth(100)
-        top_controls_layout.addWidget(self.btn_toggle_view)
-        self.main_layout.addLayout(top_controls_layout)
-
-        # --- Description and Genres ---
-        self.description_label = QLabel()
-        self.description_label.setWordWrap(True)
-        self.description_label.setFont(QFont("Arial", 10))
-        self.main_layout.addWidget(self.description_label)
-
-        self.genres_label = QLabel()
-        self.genres_label.setFont(QFont("Arial", 10, italic=True))
-        self.main_layout.addWidget(self.genres_label)
-
-        # --- Content Views (Grid and List) ---
-        self.view_stack = QStackedWidget()
-        self.main_layout.addWidget(self.view_stack)
-
-        # Grid View
-        grid_container = QWidget()
-        self.content_grid_layout = QGridLayout(grid_container)
-        self.content_grid_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_grid_layout.setSpacing(10)
-        self.content_grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.view_stack.addWidget(grid_container)
-
-        # List View
-        list_container = QWidget()
-        self.content_list_layout = QVBoxLayout(list_container)
-        self.content_list_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_list_layout.setSpacing(5)
-        self.content_list_layout.setAlignment(Qt.AlignTop)
-        self.content_list_layout.addStretch(1)
-        self.view_stack.addWidget(list_container)
+        # --- Layouts ---
+        self.content_grid_layout = QGridLayout()
+        self.ui.view_stack.widget(0).setLayout(self.content_grid_layout)
+        self.content_list_layout = QVBoxLayout()
+        self.ui.view_stack.widget(1).setLayout(self.content_list_layout)
         
-        self.main_layout.addStretch()
-
-        # Load initial view mode
+        # --- Initial View Mode ---
         initial_view_mode = self.settings_manager.get("episode_view_mode", "grid")
         if initial_view_mode == "list":
-            self.btn_toggle_view.setChecked(True)
-            self.btn_toggle_view.setText("Grid View")
-            self.view_stack.setCurrentIndex(1)
+            self.ui.btn_toggle_view.setChecked(True)
+            self.ui.btn_toggle_view.setText("Grid View")
+            self.ui.view_stack.setCurrentIndex(1)
         else:
-            self.btn_toggle_view.setText("List View")
-            self.view_stack.setCurrentIndex(0)
+            self.ui.btn_toggle_view.setText("List View")
+            self.ui.view_stack.setCurrentIndex(0)
 
     def _toggle_view(self):
-        if self.btn_toggle_view.isChecked():
-            self.view_stack.setCurrentIndex(1) # List view
-            self.btn_toggle_view.setText("Grid View")
+        if self.ui.btn_toggle_view.isChecked():
+            self.ui.view_stack.setCurrentIndex(1) # List view
+            self.ui.btn_toggle_view.setText("Grid View")
             self.settings_manager.set("episode_view_mode", "list")
         else:
-            self.view_stack.setCurrentIndex(0) # Grid view
-            self.btn_toggle_view.setText("List View")
+            self.ui.view_stack.setCurrentIndex(0) # Grid view
+            self.ui.btn_toggle_view.setText("List View")
             self.settings_manager.set("episode_view_mode", "grid")
         self._update_current_view()
 
@@ -204,8 +163,8 @@ class AnimeDetailView(QScrollArea):
         """
         Clears and repopulates the view with content cards or list items.
         """
-        self.description_label.setText(description)
-        self.genres_label.setText(f"Genres: {genres}")
+        self.ui.description_label.setText(description)
+        self.ui.genres_label.setText(f"Genres: {genres}")
 
         direct_episodes = anime_data.get("episodes", [])
         sub_series_list = anime_data.get("sub_series", [])
@@ -216,11 +175,11 @@ class AnimeDetailView(QScrollArea):
 
         if sub_series_list:
             self.current_items.extend(sub_series_list)
-            self.btn_toggle_view.hide()
+            self.ui.btn_toggle_view.hide()
         elif direct_episodes:
             self.current_items.extend(sorted(direct_episodes, key=lambda e: e.get('episode', 0) or 0))
             self.is_episode_view = True
-            self.btn_toggle_view.show()
+            self.ui.btn_toggle_view.show()
 
         self._update_current_view()
 
@@ -233,7 +192,7 @@ class AnimeDetailView(QScrollArea):
             self.content_list_layout.addWidget(QLabel("No content found for this anime."))
             return
 
-        if self.view_stack.currentIndex() == 0: # Grid view
+        if self.ui.view_stack.currentIndex() == 0: # Grid view
             self._populate_grid_view()
         else: # List view
             self._populate_list_view()
