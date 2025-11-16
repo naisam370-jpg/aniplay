@@ -1,5 +1,6 @@
 import sys
 from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout, QStackedWidget
+from PySide6.QtGui import QIcon
 
 from src.widgets.player_control_widget import PlayerControlWidget
 from src.widgets.episode_list_widget import EpisodeListWidget
@@ -22,6 +23,7 @@ class AniPlayWindow(QMainWindow):
         self.settings_manager = settings_manager
         self.metadata_fetcher = None
         self.setWindowTitle("AniPlay")
+        self.setWindowIcon(QIcon("assets/app_icon.png"))
         self.setGeometry(100, 100, 1200, 700)
 
         main_layout = QVBoxLayout()
