@@ -15,8 +15,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QGridLayout, QHBoxLayout, QScrollArea,
-    QSizePolicy, QSpacerItem, QWidget)
+from PySide6.QtWidgets import (QApplication, QGridLayout, QScrollArea, QSizePolicy,
+    QWidget)
 
 class Ui_AnimeGridWidget(object):
     def setupUi(self, AnimeGridWidget):
@@ -27,21 +27,8 @@ class Ui_AnimeGridWidget(object):
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
         self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 398, 298))
-        self.horizontalLayout = QHBoxLayout(self.scrollAreaWidgetContents)
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.horizontalLayout.addItem(self.horizontalSpacer_2)
-
-        self.grid_layout = QGridLayout()
+        self.grid_layout = QGridLayout(self.scrollAreaWidgetContents)
         self.grid_layout.setObjectName(u"grid_layout")
-
-        self.horizontalLayout.addLayout(self.grid_layout)
-
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.horizontalLayout.addItem(self.horizontalSpacer)
-
         AnimeGridWidget.setWidget(self.scrollAreaWidgetContents)
 
         self.retranslateUi(AnimeGridWidget)
