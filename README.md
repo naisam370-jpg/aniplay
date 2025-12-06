@@ -21,7 +21,7 @@ A desktop app for managing and watching your local anime library.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/aniplay.git
+    git clone https://github.com/naisam370-jpg/aniplay.git
     cd aniplay
     ```
 
