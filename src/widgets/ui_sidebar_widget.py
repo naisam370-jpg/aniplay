@@ -34,6 +34,11 @@ class Ui_Form(object):
         self.btn_search.setObjectName(u"btn_search")
 
         self.verticalLayout.addWidget(self.btn_search)
+        
+        self.btn_refresh = QPushButton(Form)
+        self.btn_refresh.setObjectName(u"btn_refresh")
+        
+        self.verticalLayout.addWidget(self.btn_refresh)
 
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
@@ -54,6 +59,7 @@ class Ui_Form(object):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
         self.btn_library.setText(QCoreApplication.translate("Form", u"Library", None))
         self.btn_search.setText(QCoreApplication.translate("Form", u"Search", None))
+        self.btn_refresh.setText(QCoreApplication.translate("Form", u"Refresh", None))
         self.btn_settings.setText(QCoreApplication.translate("Form", u"Settings", None))
     # retranslateUi
 

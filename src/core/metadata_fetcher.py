@@ -1,78 +1,89 @@
+import re
 from PySide6.QtCore import QThread, Signal
-from src.core.anilist_api import AnilistAPI
+from src.core.jikan_api import search_anime, get_anime_details
 from src.core.database_manager import DatabaseManager
 import os
-from collections import defaultdict # Import defaultdict
+import requests
+
+def download_cover(url, save_path):
+    """Downloads a cover image from a URL."""
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading cover from {url}: {e}")
+        return False
 
 class MetadataFetcher(QThread):
     """
-    A background thread to fetch metadata and covers from Anilist.
+    A background thread to fetch metadata and covers from Jikan API.
     """
-    finished = Signal() # Signal emitted when all fetching is complete
-    metadata_updated = Signal(str) # Signal emitted when a single anime's metadata is updated
+    finished = Signal()
+    metadata_updated = Signal(str)
 
-    def __init__(self, db_path: str, series_titles: list, parent=None):
+    def __init__(self, db_path: str, parent=None):
         super().__init__(parent)
         self.db_path = db_path
-        self.series_titles = series_titles
-        self.anilist_api = AnilistAPI()
 
     def run(self):
         """The main work of the thread."""
         db_manager = DatabaseManager(self.db_path)
-        
-        # Since series_titles are now cleaned, each title is its own base anime title for fetching
-        base_anime_to_series_map = defaultdict(list)
-        for series_title in self.series_titles:
-            base_anime_to_series_map[series_title].append(series_title)
+        series_to_fetch = db_manager.get_series_without_metadata()
 
-        fetched_base_anime_metadata = {} # Cache to avoid re-fetching for the same base anime
+        print(f"Starting metadata fetch for {len(series_to_fetch)} series.")
+        for series in series_to_fetch:
+            title = series['title']
+            print(f"Fetching metadata for: '{title}'...")
 
-        print(f"Starting metadata fetch for {len(self.series_titles)} series titles...")
-        for base_anime_title, derived_series_titles in base_anime_to_series_map.items(): # base_anime_title is now the cleaned series_title
-            if base_anime_title in fetched_base_anime_metadata:
-                metadata = fetched_base_anime_metadata[base_anime_title]
-                print(f"Using cached metadata for '{base_anime_title}'.")
-            else:
-                print(f"Fetching metadata for base anime: '{base_anime_title}'...")
-                metadata = self.anilist_api.fetch_anime_metadata(base_anime_title)
-                print(f"Metadata for '{base_anime_title}': {'Found' if metadata else 'Not Found'}")
-                fetched_base_anime_metadata[base_anime_title] = metadata
+            search_result = search_anime(title)
+            if not search_result:
+                print(f"No search results for '{title}' on Jikan.")
+                continue
 
-            if metadata and metadata.get('coverImage', {}).get('extraLarge'):
-                cover_url = metadata['coverImage']['extraLarge']
-                description = metadata.get('description', 'No description available.')
-                genres = metadata.get('genres', [])
-                print(f"Cover URL: {cover_url}, Description: {description[:50]}..., Genres: {genres}")
-                
-                # Apply this metadata to all derived series titles
-                for series_title in derived_series_titles:
-                    # Check if cover already exists for this specific series_title
-                    existing_cover_in_db = db_manager.get_cover_path_for_title(series_title)
-                    print(f"Checking existing cover for '{series_title}': {existing_cover_in_db}")
-                    if existing_cover_in_db:
-                        print(f"Cover path for '{series_title}' already in DB: {existing_cover_in_db}. Skipping download.")
-                        # Still update metadata if description/genres might be missing
-                        update_success = db_manager.update_series_metadata(series_title, existing_cover_in_db, description, genres)
-                        print(f"Updated metadata for '{series_title}' in DB (existing cover): {update_success}")
-                        self.metadata_updated.emit(series_title)
-                        continue
+            mal_id = search_result['mal_id']
+            details = get_anime_details(mal_id)
 
-                    cover_path = os.path.join("covers", f"{series_title}.jpg")
-                    # Download the cover
-                    download_success = self.anilist_api.download_cover(cover_url, cover_path)
-                    print(f"Downloaded cover for '{series_title}' to '{cover_path}': {download_success}")
-                    if download_success:
-                        # Update the database with all the new metadata for this specific series_title
-                        update_success = db_manager.update_series_metadata(series_title, cover_path, description, genres)
-                        print(f"Updated metadata for '{series_title}' in DB (new cover): {update_success}")
-                        self.metadata_updated.emit(series_title)
+            if details:
+                anidb_url_match = next((item['url'] for item in details.get('external', []) if item['name'] == 'AniDB' and 'url' in item), None)
+                anidb_id = None
+                if anidb_url_match:
+                    match = re.search(r'aid=(\d+)', anidb_url_match)
+                    if match:
+                        anidb_id = int(match.group(1))
+                description = details.get('synopsis', 'No description available.')
+                genres = [genre['name'] for genre in details.get('genres', [])]
+                cover_url = details.get('images', {}).get('jpg', {}).get('large_image_url')
+
+                cover_path = None
+                if cover_url:
+                    sanitized_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                    cover_path = os.path.join("covers", f"{sanitized_title}.jpg")
+                    if not os.path.exists(cover_path):
+                        print(f"Downloading cover for '{title}' to '{cover_path}'")
+                        download_success = download_cover(cover_url, cover_path)
+                        if not download_success:
+                            cover_path = None # Don't save path if download failed
                     else:
-                        print(f"Failed to download cover for '{series_title}'.")
+                        print(f"Cover for '{title}' already exists at '{cover_path}'.")
+
+                db_manager.update_series_metadata(
+                    series_id=series['id'],
+                    mal_id=mal_id,
+                    anidb_id=anidb_id,
+                    cover_path=cover_path,
+                    description=description,
+                    genres=genres
+                )
+                print(f"Successfully updated metadata for '{title}'.")
+                self.metadata_updated.emit(title)
             else:
-                for series_title in derived_series_titles:
-                    print(f"Could not fetch metadata for '{base_anime_title}' (for series '{series_title}'). No cover or metadata found.")
-        
+                print(f"Could not fetch details for '{title}' (MAL ID: {mal_id}).")
+
         print("Metadata fetch complete.")
-        db_manager.close() # Close the database connection for this thread
+        db_manager.close()
         self.finished.emit()

@@ -17,7 +17,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QSizePolicy, QSpacerItem,
-    QVBoxLayout, QWidget)
+    QVBoxLayout, QWidget, QComboBox)
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -60,27 +60,16 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.chk_auto_scan)
 
-        self.api_label = QLabel(Form)
-        self.api_label.setObjectName(u"api_label")
-
-        self.verticalLayout.addWidget(self.api_label)
-
-        self.token_layout = QHBoxLayout()
-        self.token_layout.setObjectName(u"token_layout")
-        self.token_input = QLineEdit(Form)
-        self.token_input.setObjectName(u"token_input")
-        self.token_input.setEchoMode(QLineEdit.Password)
-
-        self.token_layout.addWidget(self.token_input)
-
-        self.btn_save_token = QPushButton(Form)
-        self.btn_save_token.setObjectName(u"btn_save_token")
-
-        self.token_layout.addWidget(self.btn_save_token)
-
-
-        self.verticalLayout.addLayout(self.token_layout)
-
+        self.elide_layout = QHBoxLayout()
+        self.elide_layout.setObjectName(u"elide_layout")
+        self.elide_label = QLabel(Form)
+        self.elide_label.setObjectName(u"elide_label")
+        self.elide_layout.addWidget(self.elide_label)
+        self.elide_combobox = QComboBox(Form)
+        self.elide_combobox.setObjectName(u"elide_combobox")
+        self.elide_layout.addWidget(self.elide_combobox)
+        self.verticalLayout.addLayout(self.elide_layout)
+        
         self.data_label = QLabel(Form)
         self.data_label.setObjectName(u"data_label")
 
@@ -113,9 +102,7 @@ class Ui_Form(object):
         self.btn_select_folder.setText(QCoreApplication.translate("Form", u"Select Folder", None))
         self.btn_scan.setText(QCoreApplication.translate("Form", u"Scan Library Now", None))
         self.chk_auto_scan.setText(QCoreApplication.translate("Form", u"Automatically scan library on startup", None))
-        self.api_label.setText(QCoreApplication.translate("Form", u"API Settings", None))
-        self.token_input.setPlaceholderText(QCoreApplication.translate("Form", u"Anilist Access Token", None))
-        self.btn_save_token.setText(QCoreApplication.translate("Form", u"Save Token", None))
+        self.elide_label.setText(QCoreApplication.translate("Form", u"Title Text Truncation:", None))
         self.data_label.setText(QCoreApplication.translate("Form", u"Data Management", None))
         self.btn_clear_covers.setText(QCoreApplication.translate("Form", u"Clear Cover Cache", None))
         self.btn_clear_db.setText(QCoreApplication.translate("Form", u"Clear Library Database", None))

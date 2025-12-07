@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>969</width>
+    <height>760</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,9 +17,9 @@
    <item>
     <layout class="QHBoxLayout" name="top_controls_layout">
      <item>
-      <widget class="QPushButton" name="btn_back">
+      <widget class="QPushButton" name="btn_toggle_view">
        <property name="text">
-        <string>← Back</string>
+        <string>List View</string>
        </property>
       </widget>
      </item>
@@ -37,9 +37,9 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="btn_toggle_view">
+      <widget class="QPushButton" name="btn_back">
        <property name="text">
-        <string>List View</string>
+        <string>← Back</string>
        </property>
       </widget>
      </item>
@@ -62,23 +62,28 @@
        </widget>
       </item>
       <item>
+       <widget class="QGroupBox" name="content_group_box">
+        <property name="title">
+         <string>Content</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_3"/>
+       </widget>
+      </item>
+      <item>
        <widget class="QLabel" name="genres_label">
         <property name="text">
          <string>Genres</string>
         </property>
        </widget>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="content_group_box">
-     <property name="title">
-      <string>Content</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
        <widget class="QStackedWidget" name="view_stack">
+        <property name="cursor">
+         <cursorShape>ArrowCursor</cursorShape>
+        </property>
+        <property name="mouseTracking">
+         <bool>false</bool>
+        </property>
         <widget class="QWidget" name="page"/>
         <widget class="QWidget" name="page_2"/>
        </widget>

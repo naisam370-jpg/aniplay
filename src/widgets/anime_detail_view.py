@@ -43,7 +43,9 @@ class ContentCard(QWidget):
         super().__init__(parent)
         self.item_data = item_data
         self.main_anime_cover_path = main_anime_cover_path
+        self.original_style = "background-color: #3a3a3a; border-radius: 5px;"
         self.setProperty("class", "ContentCard")
+        self.setStyleSheet(f".ContentCard {{ {self.original_style} }} .ContentCard:hover {{ background-color: #4a4a4a; }}")
         self.setFixedSize(160, 250)
         self.setCursor(Qt.PointingHandCursor) # Indicate clickable
 
@@ -99,8 +101,15 @@ class ContentCard(QWidget):
     def mousePressEvent(self, event):
         """Handles click events on the card."""
         if event.button() == Qt.LeftButton:
-            self.clicked.emit(self.item_data)
+            self.setStyleSheet(".ContentCard { background-color: #5a5a5a; border: 1px solid #777; border-radius: 5px; }")
         super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handles mouse release events on the card."""
+        if event.button() == Qt.LeftButton:
+            self.setStyleSheet(f".ContentCard {{ {self.original_style} }} .ContentCard:hover {{ background-color: #4a4a4a; }}")
+            self.clicked.emit(self.item_data)
+        super().mouseReleaseEvent(event)
 
 class AnimeDetailView(QScrollArea):
     sub_series_or_episode_selected = Signal(dict)

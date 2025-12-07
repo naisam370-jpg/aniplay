@@ -116,3 +116,7 @@ dmypy.json
 aniplay.db
 settings.json
 /covers/*
+
+#gemini
+.gemini/
+GEMINI.md 

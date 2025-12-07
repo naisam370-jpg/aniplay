@@ -22,13 +22,26 @@ class SettingsWidget(QWidget, Ui_SettingsWidget):
         self.btn_select_folder.clicked.connect(self.select_folder)
         self.btn_scan.clicked.connect(self.scan_requested.emit)
         self.chk_auto_scan.stateChanged.connect(self.on_auto_scan_changed)
-        self.btn_save_token.clicked.connect(self.on_save_token)
+        self.elide_combobox.currentIndexChanged.connect(self.on_elide_mode_changed)
         self.btn_clear_covers.clicked.connect(self.on_clear_cover_cache)
         self.btn_clear_db.clicked.connect(self.on_clear_database)
 
         # --- Set Initial Values ---
         self.chk_auto_scan.setChecked(self.settings_manager.get("auto_scan", False))
-        self.token_input.setText(self.settings_manager.get("anilist_token", ""))
+        
+        # Populate elide combobox
+        self.elide_combobox.addItem("Right", Qt.ElideRight)
+        self.elide_combobox.addItem("Left", Qt.ElideLeft)
+        self.elide_combobox.addItem("Middle", Qt.ElideMiddle)
+        
+        # Set initial elide mode
+        elide_mode_str = self.settings_manager.get("elide_mode", "Right")
+        elide_mode_map = {"Right": Qt.ElideRight, "Left": Qt.ElideLeft, "Middle": Qt.ElideMiddle}
+        elide_mode = elide_mode_map.get(elide_mode_str, Qt.ElideRight)
+        index = self.elide_combobox.findData(elide_mode)
+        if index != -1:
+            self.elide_combobox.setCurrentIndex(index)
+            
         self.update_path_label()
 
     def update_path_label(self):
@@ -53,11 +66,12 @@ class SettingsWidget(QWidget, Ui_SettingsWidget):
         is_checked = state == Qt.Checked
         self.settings_manager.set("auto_scan", is_checked)
 
-    def on_save_token(self):
-        """Saves the Anilist access token to settings."""
-        token = self.token_input.text()
-        self.settings_manager.set("anilist_token", token)
-        print("Anilist token saved.")
+    def on_elide_mode_changed(self, index):
+        """Saves the elide mode setting when the combobox is changed."""
+        elide_mode = self.elide_combobox.itemData(index)
+        elide_mode_map = {Qt.ElideRight: "Right", Qt.ElideLeft: "Left", Qt.ElideMiddle: "Middle"}
+        elide_mode_str = elide_mode_map.get(elide_mode, "Right")
+        self.settings_manager.set("elide_mode", elide_mode_str)
 
     def on_clear_cover_cache(self):
         """Clears all downloaded cover images and updates the database."""

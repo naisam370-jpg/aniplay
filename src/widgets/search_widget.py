@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QLabel, QScrollArea, QGridLayout, QLineEdit
+from PySide6.QtWidgets import QWidget, QLabel, QScrollArea, QGridLayout, QLineEdit, QVBoxLayout
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from src.core.database_manager import DatabaseManager
@@ -25,7 +25,7 @@ class SearchWidget(QWidget, Ui_SearchWidget):
     def refresh_cache(self):
         """Reloads the episode cache from the database."""
         print("Refreshing search cache...")
-        self.all_episodes = self.db_manager.get_all_episodes()
+        self.all_episodes = self.db_manager.get_all_episodes_with_series_info()
         # Create a list of titles for rapidfuzz to search against
         self.episode_titles = [ep['title'] for ep in self.all_episodes]
         print(f"Cache refreshed with {len(self.all_episodes)} episodes.")

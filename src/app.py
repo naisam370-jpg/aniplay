@@ -42,7 +42,7 @@ class AniPlayWindow(QMainWindow):
         content_layout.addWidget(self.stacked_widget)
 
         # --- Create Views ---
-        self.anime_grid = AnimeGridWidget()
+        self.anime_grid = AnimeGridWidget(self.settings_manager)
         self.anime_detail_view = AnimeDetailView(self.settings_manager) # Instantiate new widget
         self.search_view = SearchWidget(self.db_manager, self.mpv_player)
         self.settings_view = SettingsWidget(self.db_manager, self.settings_manager)
@@ -68,6 +68,7 @@ class AniPlayWindow(QMainWindow):
         # --- Connect Signals ---
         self.sidebar.btn_library.clicked.connect(self.show_anime_grid)
         self.sidebar.btn_search.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.search_view))
+        self.sidebar.refresh_requested.connect(self.on_refresh_data_only) # Connect to new slot
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_view))
 
         self.settings_view.scan_requested.connect(self.trigger_scan)
@@ -101,13 +102,10 @@ class AniPlayWindow(QMainWindow):
         self.load_and_display_library()
         self.search_view.refresh_cache()
         
-        # Collect unique main anime titles for metadata fetching
-        unique_main_anime_titles = {item['title'] for item in video_files}
-        
-        if unique_main_anime_titles:
-            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path, list(unique_main_anime_titles))
+        if not self.metadata_fetcher or not self.metadata_fetcher.isRunning():
+            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path)
             self.metadata_fetcher.metadata_updated.connect(self.on_metadata_updated)
-            self.metadata_fetcher.finished.connect(self._metadata_fetcher_finished) # Connect finished signal
+            self.metadata_fetcher.finished.connect(self._metadata_fetcher_finished)
             self.metadata_fetcher.start()
 
     def _metadata_fetcher_finished(self):
@@ -121,6 +119,20 @@ class AniPlayWindow(QMainWindow):
     def on_metadata_updated(self, title):
         print(f"UI: Metadata updated for {title}, reloading library.")
         self.load_and_display_library()
+
+    def on_refresh_data_only(self):
+        """Refreshes the library data without changing the current view."""
+        print("Refreshing library data only...")
+        self.load_and_display_library()
+        self.search_view.refresh_cache()
+        
+        # Trigger metadata fetch if needed
+        if not self.metadata_fetcher or not self.metadata_fetcher.isRunning():
+            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path)
+            self.metadata_fetcher.metadata_updated.connect(self.on_metadata_updated)
+            self.metadata_fetcher.finished.connect(self._metadata_fetcher_finished)
+            self.metadata_fetcher.start()
+
 
     def show_anime_grid(self):
         self.load_and_display_library()
