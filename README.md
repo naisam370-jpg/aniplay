@@ -4,24 +4,35 @@ A desktop app for managing and watching your local anime library.
 
 ## Features
 
-*   **Scan & Organize:** Scan your local folders to automatically identify and organize your anime series.
-*   **Metadata Fetching:** Automatically fetches metadata and covers from Anilist.
-*   **Integrated Player:** Watch anime with the integrated MPV player.
+*   **Library Scanning:** Scan your local folders to automatically identify and organize your anime series based on file names.
+*   **Metadata Fetching:** Automatically fetches metadata (like descriptions and genres) and covers from the Anilist API.
+*   **Integrated Player:** Watch anime with an integrated MPV player interface.
+*   **Detailed Views:** See detailed information for each series, including sub-series and episodes.
+*   **Database:** Uses a local SQLite database to store your library information.
 *   **Search:** Quickly search through your anime library.
+*   **Customizable Settings:** Set your library path and other preferences.
 *   **Dark Theme:** A sleek dark theme for comfortable viewing.
 
-## Dependencies
+## Requirements
 
-*   Python 3
-*   PySide6
-*   python-mpv
-*   [mpv](https://mpv.io/installation/) (must be installed and accessible in your system's PATH)
+### Software
+
+*   **Python 3**
+*   **[mpv](https://mpv.io/installation/)**: The `mpv` player must be installed and accessible in your system's PATH.
+
+### Python Dependencies
+
+All required Python packages are listed in the `requirements.txt` file and can be installed with pip. Key dependencies include:
+
+*   **PySide6:** For the user interface.
+*   **Requests:** For fetching metadata from the Anilist API.
+*   **rapidfuzz:** For fuzzy string matching in the search functionality.
 
 ## Installation
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/aniplay.git
+    git clone https://github.com/naisam370-jpg/aniplay.git
     cd aniplay
     ```
 
@@ -29,7 +40,6 @@ A desktop app for managing and watching your local anime library.
     ```bash
     pip install -r requirements.txt
     ```
-    *(Note: A `requirements.txt` file may need to be created. See `src/app.py` for imports.)*
 
 3.  **Install mpv:**
     Follow the instructions for your operating system on the [mpv website](https://mpv.io/installation/).
