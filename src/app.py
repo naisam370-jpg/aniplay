@@ -68,7 +68,6 @@ class AniPlayWindow(QMainWindow):
         # --- Connect Signals ---
         self.sidebar.btn_library.clicked.connect(self.show_anime_grid)
         self.sidebar.btn_search.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.search_view))
-        self.sidebar.refresh_requested.connect(self.on_refresh_data_only) # Connect to new slot
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_view))
 
         self.settings_view.scan_requested.connect(self.trigger_scan)
@@ -119,20 +118,6 @@ class AniPlayWindow(QMainWindow):
     def on_metadata_updated(self, title):
         print(f"UI: Metadata updated for {title}, reloading library.")
         self.load_and_display_library()
-
-    def on_refresh_data_only(self):
-        """Refreshes the library data without changing the current view."""
-        print("Refreshing library data only...")
-        self.load_and_display_library()
-        self.search_view.refresh_cache()
-        
-        # Trigger metadata fetch if needed
-        if not self.metadata_fetcher or not self.metadata_fetcher.isRunning():
-            self.metadata_fetcher = MetadataFetcher(self.db_manager.db_path)
-            self.metadata_fetcher.metadata_updated.connect(self.on_metadata_updated)
-            self.metadata_fetcher.finished.connect(self._metadata_fetcher_finished)
-            self.metadata_fetcher.start()
-
 
     def show_anime_grid(self):
         self.load_and_display_library()
@@ -217,5 +202,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
