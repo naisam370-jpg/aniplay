@@ -1,5 +1,19 @@
-pyside6==6.9.2
-pyside6_addons==6.9.2
-pyside6_essentials==6.9.2
-rapidfuzz==3.14.3
-Requests==2.32.5
+# --- Core UI & Framework ---
+PySide6>=6.8.0          # Qt for Python (LGPL/Commercial)
+
+# --- Video Engine ---
+python-mpv>=1.0.7       # C-wrapper for libmpv (requires system libmpv)
+
+# --- Performance & Security ---
+xxhash>=3.5.0           # Extreme speed non-cryptographic hash for file IDs
+argon2-cffi>=23.1.0     # Industry-standard PIN/Password hashing for profiles
+
+# --- Metadata & Networking ---
+requests>=2.32.0        # For Jikan API calls and fetching cover art
+
+# --- Desktop Integration ---
+pypresence>=4.3.0       # Discord Rich Presence integration
+mpris2>=1.0.2           # Linux-native Media Player Remote Interfacing
+
+# --- Optimization & Deployment ---
+nuitka>=2.6.0           # For compiling Python to a standalone C++ binary
