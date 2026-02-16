@@ -1,20 +1,42 @@
 import sqlite3
+import os
 from pathlib import Path
 
+
 class DatabaseManager:
-    class DatabaseManager:
-        def __init__(self):
-            # This ensures the DB is always in the same folder as this script
-            base_dir = Path(__file__).parent.parent.absolute()
-            self.db_path = base_dir / "aniplay.db"
-            self.conn = sqlite3.connect(self.db_path)
-            self.create_tables()
+    def __init__(self):
+        # 1. Define where the database file should live
+        # This points to /aniplay/src/aniplay.db
+        base_dir = Path(__file__).parent.parent.absolute()
+        self.db_path = base_dir / "aniplay.db"
+
+        # 2. Run the initial setup
+        self.create_tables()
 
     def get_connection(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.execute("PRAGMA journal_mode=WAL;")  # High-speed concurrent access
-        conn.execute("PRAGMA foreign_keys=ON;")
-        return conn
+        # Now self.db_path definitely exists
+        return sqlite3.connect(self.db_path)
+
+    def create_tables(self):
+        with self.get_connection() as conn:
+            conn.execute("""
+                         CREATE TABLE IF NOT EXISTS anime
+                         (
+                             id
+                             INTEGER
+                             PRIMARY
+                             KEY
+                             AUTOINCREMENT,
+                             title
+                             TEXT
+                             UNIQUE,
+                             poster_path
+                             TEXT,
+                             rating
+                             REAL
+                         )
+                         """)
+            # ... add your other tables (episodes, etc.) here
 
     def init_db(self):
         with self.get_connection() as conn:

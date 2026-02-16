@@ -17,12 +17,12 @@ class ThumbnailManager:
             return str(output_path)
 
         # FFmpeg command:
-        # -ss 00:05:00 (Seek to 5 minutes to avoid opening credits)
+        # -ss 00:00:20 (Seek to 20 seconds to avoid going past NCOP lengths of some files)
         # -i (input file)
         # -frames:v 1 (capture 1 frame)
         # -q:v 2 (high quality)
         cmd = [
-            'ffmpeg', '-ss', '00:05:00', '-i', str(video_path),
+            'ffmpeg', '-ss', '00:00:20', '-i', str(video_path),
             '-frames:v', '1', '-q:v', '2', str(output_path),
             '-y', '-loglevel', 'quiet'  # Overwrite and stay silent
         ]

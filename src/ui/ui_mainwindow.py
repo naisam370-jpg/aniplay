@@ -16,9 +16,10 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QFrame, QGridLayout,
-    QLabel, QLineEdit, QMainWindow, QProgressBar,
-    QPushButton, QScrollArea, QSizePolicy, QSlider,
-    QSpacerItem, QStackedWidget, QVBoxLayout, QWidget)
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+    QProgressBar, QPushButton, QScrollArea, QSizePolicy,
+    QSlider, QSpacerItem, QStackedWidget, QVBoxLayout,
+    QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -27,8 +28,8 @@ class Ui_MainWindow(object):
         MainWindow.resize(1038, 591)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
-        self.gridLayout = QGridLayout(self.centralwidget)
-        self.gridLayout.setObjectName(u"gridLayout")
+        self.horizontalLayout_2 = QHBoxLayout(self.centralwidget)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.frame = QFrame(self.centralwidget)
         self.frame.setObjectName(u"frame")
         self.frame.setMinimumSize(QSize(125, 0))
@@ -56,25 +57,30 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.btn_settings)
 
 
-        self.gridLayout.addWidget(self.frame, 0, 1, 1, 1)
+        self.horizontalLayout_2.addWidget(self.frame)
 
         self.stacked_widget = QStackedWidget(self.centralwidget)
         self.stacked_widget.setObjectName(u"stacked_widget")
         self.page_1 = QWidget()
         self.page_1.setObjectName(u"page_1")
-        self.gridLayout_3 = QGridLayout(self.page_1)
-        self.gridLayout_3.setObjectName(u"gridLayout_3")
+        self.horizontalLayout = QHBoxLayout(self.page_1)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.scrollArea_2 = QScrollArea(self.page_1)
         self.scrollArea_2.setObjectName(u"scrollArea_2")
         self.scrollArea_2.setWidgetResizable(True)
-        self.episodeWidgetContents = QWidget()
-        self.episodeWidgetContents.setObjectName(u"episodeWidgetContents")
-        self.episodeWidgetContents.setGeometry(QRect(0, 0, 869, 553))
-        self.gridLayout_4 = QGridLayout(self.episodeWidgetContents)
+        self.scrollAreaWidgetContents = QWidget()
+        self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 869, 553))
+        self.gridLayout_4 = QGridLayout(self.scrollAreaWidgetContents)
         self.gridLayout_4.setObjectName(u"gridLayout_4")
-        self.scrollArea_2.setWidget(self.episodeWidgetContents)
+        self.library_grid = QGridLayout()
+        self.library_grid.setObjectName(u"library_grid")
 
-        self.gridLayout_3.addWidget(self.scrollArea_2, 0, 0, 1, 1)
+        self.gridLayout_4.addLayout(self.library_grid, 0, 0, 1, 1)
+
+        self.scrollArea_2.setWidget(self.scrollAreaWidgetContents)
+
+        self.horizontalLayout.addWidget(self.scrollArea_2)
 
         self.stacked_widget.addWidget(self.page_1)
         self.page_2 = QWidget()
@@ -154,31 +160,59 @@ class Ui_MainWindow(object):
         self.stacked_widget.addWidget(self.page_3)
         self.page_4 = QWidget()
         self.page_4.setObjectName(u"page_4")
-        self.edit_library_path = QLineEdit(self.page_4)
-        self.edit_library_path.setObjectName(u"edit_library_path")
-        self.edit_library_path.setGeometry(QRect(20, 20, 251, 21))
+        self.gridLayout = QGridLayout(self.page_4)
+        self.gridLayout.setObjectName(u"gridLayout")
         self.btn_browse_path = QPushButton(self.page_4)
         self.btn_browse_path.setObjectName(u"btn_browse_path")
-        self.btn_browse_path.setGeometry(QRect(290, 20, 80, 21))
+
+        self.gridLayout.addWidget(self.btn_browse_path, 0, 1, 1, 1)
+
+        self.edit_library_path = QLineEdit(self.page_4)
+        self.edit_library_path.setObjectName(u"edit_library_path")
+
+        self.gridLayout.addWidget(self.edit_library_path, 0, 0, 1, 1)
+
+        self.horizontalSpacer_3 = QSpacerItem(318, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.gridLayout.addItem(self.horizontalSpacer_3, 4, 4, 1, 1)
+
         self.btn_start_scan = QPushButton(self.page_4)
         self.btn_start_scan.setObjectName(u"btn_start_scan")
-        self.btn_start_scan.setGeometry(QRect(390, 20, 80, 21))
-        self.scan_progress = QProgressBar(self.page_4)
-        self.scan_progress.setObjectName(u"scan_progress")
-        self.scan_progress.setGeometry(QRect(20, 50, 391, 23))
-        self.scan_progress.setValue(24)
+
+        self.gridLayout.addWidget(self.btn_start_scan, 0, 2, 1, 2)
+
+        self.verticalSpacer_3 = QSpacerItem(20, 468, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.gridLayout.addItem(self.verticalSpacer_3, 3, 0, 1, 1)
+
+        self.horizontalSpacer_2 = QSpacerItem(318, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.gridLayout.addItem(self.horizontalSpacer_2, 0, 4, 2, 1)
+
+        self.verticalSpacer_4 = QSpacerItem(20, 497, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.gridLayout.addItem(self.verticalSpacer_4, 3, 3, 2, 1)
+
         self.lbl_scan_status = QLabel(self.page_4)
         self.lbl_scan_status.setObjectName(u"lbl_scan_status")
-        self.lbl_scan_status.setGeometry(QRect(420, 51, 47, 16))
+
+        self.gridLayout.addWidget(self.lbl_scan_status, 2, 0, 1, 1)
+
+        self.scan_progress = QProgressBar(self.page_4)
+        self.scan_progress.setObjectName(u"scan_progress")
+        self.scan_progress.setValue(24)
+
+        self.gridLayout.addWidget(self.scan_progress, 1, 0, 1, 4)
+
         self.stacked_widget.addWidget(self.page_4)
 
-        self.gridLayout.addWidget(self.stacked_widget, 0, 2, 1, 1)
+        self.horizontalLayout_2.addWidget(self.stacked_widget)
 
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
 
-        self.stacked_widget.setCurrentIndex(0)
+        self.stacked_widget.setCurrentIndex(3)
 
 
         QMetaObject.connectSlotsByName(MainWindow)

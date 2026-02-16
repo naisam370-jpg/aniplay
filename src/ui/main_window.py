@@ -20,14 +20,15 @@ class MainWindow(QMainWindow):
     def __init__(self, launcher):
         super().__init__()
         self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
-        self.core = launcher  # Access to DatabaseManager
+        self.ui.setupUi(self)  # <--- DO NOT REMOVE
+        self.core = launcher
+
         self.threadpool = QThreadPool()
 
         # 1. Sidebar Navigation Connections
         self.ui.btn_home.clicked.connect(lambda: self.ui.stacked_widget.setCurrentIndex(0))
-        self.ui.btn_library.clicked.connect(lambda: self.ui.stacked_widget.setCurrentIndex(1))
-        self.ui.btn_settings.clicked.connect(lambda: self.ui.stacked_widget.setCurrentIndex(4))
+        self.ui.btn_library.clicked.connect(lambda: self.ui.stacked_widget.setCurrentIndex(0))
+        self.ui.btn_settings.clicked.connect(lambda: self.ui.stacked_widget.setCurrentIndex(3))
 
         # 2. Settings Page Connections
         self.ui.btn_browse_path.clicked.connect(self.browse_folder)
@@ -62,12 +63,17 @@ class MainWindow(QMainWindow):
         self.display_library()
 
     def display_library(self):
-        """Clears and re-fills the grid with anime posters."""
-        # Clear existing widgets in the grid
+        # Check if the grid actually exists before trying to clear it
+        if not hasattr(self.ui, 'library_grid'):
+            print("Error: library_grid not found! Check Designer naming.")
+            return
+
         while self.ui.library_grid.count():
             item = self.ui.library_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+        print("Grid cleared, ready to load posters.")
 
         # Fetch from DB
         anime_list = self.core.db.get_library()
@@ -96,5 +102,5 @@ class MainWindow(QMainWindow):
     def show_anime_details(self, anime_id):
         """Switches to Page 2 and fills in metadata."""
         # This is where we will fetch specific season/episode data
-        self.ui.stacked_widget.setCurrentIndex(2)
+        self.ui.stacked_widget.setCurrentIndex(1)
         print(f"Loading Anime ID: {anime_id}")
