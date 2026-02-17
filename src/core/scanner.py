@@ -1,11 +1,12 @@
 import os
 import xxhash
+import re
 from pathlib import Path
 from PySide6.QtCore import QRunnable, QObject, Signal, Slot
 
 from .parser import EpisodeParser
 from .thumbnails import ThumbnailManager
-from .api import JikanAPI  # Import the API
+from .api import JikanAPI
 
 
 class ScannerSignals(QObject):
@@ -22,7 +23,7 @@ class ScannerWorker(QRunnable):
         self.signals = ScannerSignals()
         self.parser = EpisodeParser()
         self.thumb_manager = ThumbnailManager()
-        self.api = JikanAPI()  # Initialize API
+        self.api = JikanAPI()
         self.video_extensions = ('.mkv', '.mp4', '.avi', '.mov')
 
     def generate_hash(self, file_path):
@@ -43,61 +44,48 @@ class ScannerWorker(QRunnable):
     @Slot()
     def run(self):
         total_indexed = 0
-
         for root, dirs, files in os.walk(self.root_path):
-            if 'extras' in root.lower():
-                continue
+            if 'extras' in root.lower(): continue
 
             relative_path = Path(root).relative_to(self.root_path)
-            if str(relative_path) == ".":
-                continue
+            if str(relative_path) == ".": continue
 
             anime_title = relative_path.parts[0]
             anime_root_folder = str(self.root_path / anime_title)
+            cover_path = self.find_cover(root) if len(relative_path.parts) == 1 else None
 
-            # Check for cover.jpg
-            cover_path = None
-            if len(relative_path.parts) == 1:
-                cover_path = self.find_cover(root)
-
-            # 1. Ensure Anime exists in DB
-            anime_id = self.db.get_or_create_anime(
-                title=anime_title,
-                path=anime_root_folder,
-                poster=cover_path
-            )
+            anime_id = self.db.get_or_create_anime(title=anime_title, path=anime_root_folder, poster=cover_path)
             self.signals.found_anime.emit(anime_title)
 
-            # 2. Fetch Metadata if it doesn't exist yet
+            # Metadata fetching
             existing_data = self.db.get_anime_details(anime_id)
-            if existing_data and existing_data[4] is None:  # mal_id is at index 4
-                self.signals.progress.emit(f"Fetching metadata for: {anime_title}")
+            if existing_data and existing_data[4] is None:
                 metadata = self.api.search_anime(anime_title)
                 if metadata:
-                    self.db.update_anime_metadata(
-                        anime_id,
-                        metadata['mal_id'],
-                        metadata['rating'],
-                        metadata['synopsis'],
-                        metadata['genres']
-                    )
+                    self.db.update_anime_metadata(anime_id, metadata['mal_id'], metadata['rating'],
+                                                  metadata['synopsis'], metadata['genres'])
 
-            # 3. Process Episodes
             for file in files:
                 if file.lower().endswith(self.video_extensions):
                     full_path = os.path.join(root, file)
                     self.signals.progress.emit(f"Processing: {file}")
 
                     season, episode = self.parser.parse_path(full_path)
+
+                    # Improved Title Extraction Regex
+                    # Matches " - 01 - Title" or " - 01 Title"
+                    title_match = re.search(r" - \d+\s*-\s*(.+?)\.[a-z0-9]+$", file, re.I)
+                    if not title_match:
+                        title_match = re.search(r" - \d+\s+(.+?)\.[a-z0-9]+$", file, re.I)
+
+                    ep_title = title_match.group(1).strip() if title_match else None
+
                     file_hash = self.generate_hash(full_path)
                     thumb_path = self.thumb_manager.generate_for_episode(full_path, file_hash)
 
                     self.db.add_episode(
-                        anime_id=anime_id,
-                        file_path=full_path,
-                        season=season,
-                        episode=episode,
-                        file_hash=file_hash,
+                        anime_id=anime_id, file_path=full_path, season=season,
+                        episode=episode, title=ep_title, file_hash=file_hash,
                         thumbnail_path=thumb_path
                     )
                     total_indexed += 1

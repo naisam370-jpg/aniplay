@@ -2,46 +2,20 @@ import sqlite3
 import os
 from pathlib import Path
 
-
 class DatabaseManager:
     def __init__(self):
-        # 1. Define where the database file should live
-        # This points to /aniplay/src/aniplay.db
         base_dir = Path(__file__).parent.parent.absolute()
         self.db_path = base_dir / "aniplay.db"
-
-        # 2. Run the initial setup
-        self.create_tables()
+        self.init_db()
 
     def get_connection(self):
-        # Now self.db_path definitely exists
         return sqlite3.connect(self.db_path)
 
-    def create_tables(self):
-        with self.get_connection() as conn:
-            conn.execute("""
-                         CREATE TABLE IF NOT EXISTS anime
-                         (
-                             id
-                             INTEGER
-                             PRIMARY
-                             KEY
-                             AUTOINCREMENT,
-                             title
-                             TEXT
-                             UNIQUE,
-                             poster_path
-                             TEXT,
-                             rating
-                             REAL
-                         )
-                         """)
-            # ... add your other tables (episodes, etc.) here
-
     def init_db(self):
+        """Creates the full schema. Note: This only runs if the .db file is new/deleted."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # Anime Table: Stores Series level info + Metadata from API
+            # Anime Table
             cursor.execute('''CREATE TABLE IF NOT EXISTS anime (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -53,13 +27,14 @@ class DatabaseManager:
                 genres TEXT
             )''')
 
-            # Episodes Table: Stores specific file info
+            # Episode Table - Including 'title' and 'episode_num'
             cursor.execute('''CREATE TABLE IF NOT EXISTS episodes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 anime_id INTEGER,
                 file_path TEXT UNIQUE,
                 file_hash TEXT UNIQUE,
                 season INTEGER,
+                title TEXT,
                 episode_num INTEGER,
                 thumbnail_path TEXT,
                 last_position REAL DEFAULT 0,
@@ -69,7 +44,6 @@ class DatabaseManager:
             conn.commit()
 
     def get_or_create_anime(self, title, path, poster=None):
-        """Returns the ID of an anime, creating it if it doesn't exist."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -79,55 +53,51 @@ class DatabaseManager:
                 poster_path = COALESCE(excluded.poster_path, anime.poster_path)
                 RETURNING id
             ''', (title, path, poster))
-            result = cursor.fetchone()
-            return result[0] if result else None
+            res = cursor.fetchone()
+            return res[0] if res else None
 
-    def update_anime_metadata(self, anime_id, mal_id, rating, synopsis, genres):
-        """Updates the metadata fetched from Jikan API."""
+    def add_episode(self, anime_id, file_path, season, episode, title, file_hash, thumbnail_path):
+        """Saves the title extracted by the scanner."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                UPDATE anime SET 
-                mal_id = ?, rating = ?, synopsis = ?, genres = ?
-                WHERE id = ?
-            ''', (mal_id, rating, synopsis, genres, anime_id))
-            conn.commit()
-
-    def add_episode(self, anime_id, file_path, season, episode, file_hash, thumbnail_path):
-        """Adds or updates an episode entry."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO episodes (anime_id, file_path, file_hash, season, episode_num, thumbnail_path)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO episodes (anime_id, file_path, file_hash, season, title, episode_num, thumbnail_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(file_hash) DO UPDATE SET
                 file_path = excluded.file_path,
+                title = COALESCE(excluded.title, episodes.title),
                 thumbnail_path = COALESCE(excluded.thumbnail_path, episodes.thumbnail_path)
-            ''', (anime_id, file_path, file_hash, season, episode, thumbnail_path))
+            ''', (anime_id, file_path, file_hash, season, title, episode, thumbnail_path))
             conn.commit()
 
+    def get_episodes(self, anime_id):
+        """Returns 5 columns for the UI to unpack."""
+        query = """
+                SELECT id, file_path, thumbnail_path, title, episode_num 
+                FROM episodes 
+                WHERE anime_id = ? 
+                ORDER BY episode_num ASC
+                """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (anime_id,))
+            return cursor.fetchall()
+
     def get_library(self):
-        """Returns all anime for the Library grid view."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, title, poster_path, rating FROM anime ORDER BY title ASC")
             return cursor.fetchall()
 
     def get_anime_details(self, anime_id):
-        """Returns full details for a specific anime."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM anime WHERE id = ?", (anime_id,))
             return cursor.fetchone()
 
-    def get_episodes(self, anime_id, season=1):
-        """Returns episodes for a specific anime and season."""
+    def update_anime_metadata(self, anime_id, mal_id, rating, synopsis, genres):
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT episode_num, thumbnail_path, file_path 
-                FROM episodes 
-                WHERE anime_id = ? AND season = ?
-                ORDER BY episode_num ASC
-            """, (anime_id, season))
-            return cursor.fetchall()
+            cursor.execute("UPDATE anime SET mal_id=?, rating=?, synopsis=?, genres=? WHERE id=?",
+                           (mal_id, rating, synopsis, genres, anime_id))
+            conn.commit()
